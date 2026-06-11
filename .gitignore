@@ -1,0 +1,38 @@
+# --- Model weights: live in the local model store, NEVER in git --------------
+*.pt
+*.pth
+*.onnx
+*.bin
+*.safetensors
+
+# --- Python bytecode -----------------------------------------------------------
+__pycache__/
+*.pyc
+*.pyo
+
+# --- Runtime artifacts (manifests, logs, session outputs) -----------------------
+manifest/
+logs/
+session/
+*.manifest.jsonl
+
+# --- Audio / video data: NEVER committed -----------------------------------------
+*.wav
+*.mp4
+*.mov
+*.mkv
+*.h5
+
+# --- Vendored wheels (air-gap install source) -------------------------------------
+wheelhouse/
+
+# --- Secrets / local environment ----------------------------------------------------
+.env
+.env.*
+
+# --- Hash registries (contain local staging paths / belong to the model store) ------
+hash_registry.json
+expected_hashes.json
+
+# --- Local tool settings ---------------------------------------------------------------
+.claude/settings.local.json

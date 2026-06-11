@@ -1,0 +1,143 @@
+# =============================================================================
+# SPOVNOB — Forensic Audio Diarization Pipeline
+# Pinned dependency stack (Revision 1 — 2026-06-11)
+#
+# Target deployment: Ubuntu 22.04 LTS · Python 3.10.x · CUDA 12.1
+#                    NVIDIA RTX 6000 Ada (48 GB VRAM)
+# Authored on macOS; nothing in this file or the pipeline may assume macOS.
+#
+# Install procedure (online staging box -> air-gapped server):
+#   python3.10 -m venv .venv && source .venv/bin/activate
+#   pip install --upgrade "pip==24.0"
+#   pip download -r requirements.txt -d ./wheelhouse        # staging (online)
+#   pip install --no-index --find-links ./wheelhouse -r requirements.txt   # air-gapped
+#
+# After install on the deployment box:
+#   pip freeze > requirements.lock
+# and record the SHA-256 of requirements.lock in the session manifest
+# (Model Vendoring Mandate, Audio_Diarization.md — System Environment).
+#
+# System packages (apt, Ubuntu 22.04 — NOT pip):
+#   ffmpeg              (4.4.x from jammy repos; record exact version in manifest)
+#   libsndfile1         (required by soundfile)
+#   build-essential, python3.10-dev   (insightface compiles Cython extensions)
+# =============================================================================
+
+# ---- Wheel indexes ----------------------------------------------------------
+# PyTorch CUDA 12.1 wheels:
+--extra-index-url https://download.pytorch.org/whl/cu121
+# onnxruntime-gpu CUDA 12 feed — REQUIRED (see FLAG 2): the default PyPI
+# onnxruntime-gpu 1.17.x wheel links against CUDA 11.8 and will silently fail
+# over to CPU on this CUDA 12.1 box. aka.ms/onnxruntime-cuda-12 redirects to
+# the official Microsoft Azure feed for CUDA-12 builds of ORT 1.17.x.
+--extra-index-url https://aka.ms/onnxruntime-cuda-12
+
+# ---- Core framework (PyTorch only — Framework Mandate) ----------------------
+torch==2.1.2+cu121
+torchaudio==2.1.2+cu121
+torchvision==0.16.2+cu121
+numpy==1.26.4               # NOT 2.x — breaking API/ABI changes
+
+# ---- Speech / speaker stack --------------------------------------------------
+speechbrain==1.0.0          # ECAPA-TDNN C=1024 (Layers 1 & 2)
+pyannote.audio==3.1.1       # Overlap detection ONLY (Layer 3) — see FLAG 1
+transformers==4.38.2        # HuBERT feature extraction (PyTorch backend only)
+huggingface-hub==0.21.3
+
+# silero-vad: NOT installed via pip in this stack. Loaded via torch.hub from a
+# VENDORED snapshot of github.com/snakers4/silero-vad pinned to commit:
+#   915dd3d639b8333a52e001af095f87c5b7f1e0ac     (tag v4.0)
+# NOTE (audit-relevant): upstream MOVED the v4.0 tag in July 2024
+# ("moving tag to new commit"). Git tags are mutable; the commit hash above and
+# the SHA-256 of the vendored snapshot are the only authoritative pins.
+# Both are recorded in the session manifest at startup (environment_gate).
+
+# ---- Vision stack -------------------------------------------------------------
+ultralytics==8.1.47         # YOLOv8 person detection (Layer 1)
+insightface==0.7.3          # SCRFD face det + ArcFace + 2d106det landmarks (Layer 1)
+onnxruntime-gpu==1.17.1     # InsightFace inference engine — CUDA 12 build (FLAG 2)
+onnx==1.15.0                # insightface dependency, pinned for py3.10 / numpy 1.26
+opencv-python-headless==4.9.0.80   # FLAG 3 ruling 2026-06-11: headless server, GUI build excluded
+
+# ---- Audio I/O & DSP -----------------------------------------------------------
+ffmpeg-python==0.2.0        # wrapper only; system ffmpeg binary required (apt)
+soundfile==0.12.1
+librosa==0.10.1
+scipy==1.12.0
+
+# ---- Pinned transitive dependencies (determinism-critical) ---------------------
+numba==0.59.1               # librosa dep — first numba series supporting numpy 1.26
+llvmlite==0.42.0            # paired with numba 0.59.x
+lightning==2.1.4            # pyannote.audio backend (inference-only in SPOVNOB)
+torchmetrics==1.3.1         # pyannote.audio dependency
+scikit-learn==1.4.1.post1   # insightface dependency
+scikit-image==0.22.0        # insightface dependency
+
+# ---- Utilities ------------------------------------------------------------------
+tqdm==4.66.2
+
+# ---- Explicitly EXCLUDED ----------------------------------------------------------
+# h5py==3.10.0  -> no consumer remains: the WavLM embedding cache was removed from
+#                  the architecture (Audio_Diarization.md Rev 2+). Re-add only if a
+#                  feature cache ever returns.
+# tensorflow / jax / flax / paddle -> forbidden by the Framework Mandate.
+#
+# =============================================================================
+# COMPATIBILITY FLAGS — ALL RULED ON BY OPERATOR, 2026-06-11
+#   FLAG 1: approved as recommended (keep pins + environment_gate guard)
+#   FLAG 2: approved as recommended (CUDA-12 feed, vendored wheel, startup assert)
+#   FLAG 3: approved — switched to opencv-python-headless==4.9.0.80 (applied above)
+#   FLAG 4: confirmed — InsightFace/ONNXRuntime stays (sanctioned exception)
+#   FLAG 5: approved — session_manifest.py implemented first (Module 0a)
+#   Silero pin: approved — commit hash, not tag
+#
+# Original flag details retained below for the audit record:
+#
+# FLAG 1 — pyannote.audio 3.1.1 + speechbrain 1.0.0
+#   There is NO pip-level dependency conflict (speechbrain is an optional,
+#   lazily-imported pyannote dependency). There IS a known runtime
+#   incompatibility: pyannote 3.1.1's SpeechBrainPretrainedSpeakerEmbedding
+#   wrapper imports the removed `speechbrain.pretrained` module and fails with
+#   speechbrain 1.x (pyannote issues #1661/#1677; fixed upstream only in
+#   pyannote.audio 3.3.1 — no 3.1.x patch exists).
+#   SPOVNOB never executes that code path: pyannote is used exclusively for
+#   overlapped-speech detection (segmentation model), and all ECAPA inference
+#   goes through speechbrain directly.
+#   RESOLUTION (recommended): keep both pins; environment_gate.py adds a guard
+#   forbidding pyannote's speechbrain embedding wrapper. Fallback if that
+#   wrapper is ever needed: bump pyannote.audio to 3.3.1 (requires re-running
+#   the Layer 3 determinism benchmark before adoption).
+#
+# FLAG 2 — onnxruntime-gpu 1.17.1 CUDA build mismatch
+#   Default PyPI wheel of ORT-GPU 1.17.x targets CUDA 11.8 / cuDNN 8.x. On this
+#   CUDA 12.1 box it would fail to create the CUDAExecutionProvider and fall
+#   back to CPU silently. The version pin is KEPT; the wheel SOURCE changes to
+#   the official CUDA-12 feed (--extra-index-url above). The CUDA-12 wheel must
+#   be vendored into ./wheelhouse for the air-gapped install. ORT also needs
+#   cuDNN 8.x at runtime: torch 2.1.2+cu121 already pulls nvidia-cudnn-cu12
+#   (8.9.x) as a pip dependency; environment_gate verifies the
+#   CUDAExecutionProvider is actually available at startup (blocking halt
+#   otherwise — no silent CPU fallback permitted).
+#
+# FLAG 3 — opencv-python vs opencv-python-headless
+#   insightface 0.7.3 depends on albumentations, which pulls
+#   opencv-python-headless. Installing BOTH opencv-python and the headless
+#   variant in one environment is a known source of subtle binary conflicts.
+#   The deployment server is headless (no GUI, no X11), so the GUI build buys
+#   nothing. RULING 2026-06-11: switched to opencv-python-headless==4.9.0.80
+#   (applied in the Vision stack section above).
+#
+# FLAG 4 — pure-PyTorch face recognition alternative (per Framework Mandate)
+#   facenet-pytorch (MTCNN + InceptionResnetV1) is the main pure-PyTorch
+#   option. It does NOT match InsightFace: weaker recognition accuracy than
+#   ArcFace-R100, and critically it has no 106-point landmark model — SPOVNOB's
+#   MAR computation requires InsightFace 2d106det indices (52/53/54, 61/62/63).
+#   RECOMMENDATION: stay on InsightFace + ONNXRuntime (the sanctioned
+#   exception). Flagged for the record as the directive requires.
+#
+# FLAG 5 — implementation-order contradiction (see implementation_order.md)
+#   The directive's module order places session_manifest.py last (Module 5),
+#   but rules 3 and 7 require earlier modules to write to the manifest without
+#   importing a later module. RULING 2026-06-11: approved — session_manifest
+#   is implemented first (Module 0a). See implementation_order.md.
+# =============================================================================
