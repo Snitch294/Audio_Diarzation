@@ -14,7 +14,7 @@ The full architecture specification lives in [`Audio_Diarization.md`](Audio_Diar
 | 2 — Layer 1 enrollment (visual-anchored speaker profile) | `layer1_enrollment/` | ✅ Complete |
 | 3 — Layer 2 tracker (calibrated sliding-window target tracking) | `layer2_tracker.py` | ✅ Complete |
 | 4 — Layer 3 contamination flagging (overlap exclusion) | `layer3_contamination.py` | ✅ Complete |
-| 5 — Pipeline runner | `pipeline_runner.py` | 🔲 In progress |
+| 5 — Pipeline runner (production entrypoint) | `pipeline_runner.py` | ✅ Complete |
 | Behavioral analysis | — | ⏸ Deferred — requires separate design phase |
 
 Every module ships a stdlib-only self-test that runs on a plain Python 3.10 with zero installed dependencies:
@@ -26,6 +26,14 @@ python3 layer0_preprocessor.py --selftest
 python3 -m layer1_enrollment --selftest
 python3 layer2_tracker.py --selftest
 python3 layer3_contamination.py --selftest
+python3 pipeline_runner.py --selftest
+```
+
+Full batch run (Ubuntu deployment box, after setup):
+
+```bash
+python3 pipeline_runner.py --run --videos <files...> --clicks clicks.json \
+    --work-dir <dir> --model-store <store> --manifest <session.jsonl>
 ```
 
 ## Platform
