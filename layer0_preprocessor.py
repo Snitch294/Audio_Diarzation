@@ -84,7 +84,13 @@ from fractions import Fraction
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
-from session_manifest import Operation, SessionManifest, sha256_of_file
+from session_manifest import (
+    ManifestTimeError,
+    Operation,
+    SessionManifest,
+    sha256_of_file,
+    validate_time_fields,
+)
 
 # --- Layer 0 constants (manifest-logged on every batch) ----------------------
 SAMPLE_RATE = 16000                  # architectural (whole pipeline is 16kHz)
@@ -292,6 +298,33 @@ class BatchAudio:
         )
 
 
+def layer0_file_payload(file_audio: FileAudio) -> Dict[str, Any]:
+    """OP_LAYER0_FILE manifest payload (pure — self-testable without ffmpeg).
+
+    Segments are nested ``{"start_ms": ..., "end_ms": ...}`` dicts so Rule 6
+    actively validates every boundary as an integer; a bare pair list under
+    an ``_ms``-suffixed key would be rejected by ``validate_time_fields``.
+    """
+    return {
+        "file_index": file_audio.file_index,
+        "source": file_audio.source_path,
+        "wav_sha256": file_audio.wav_sha256,
+        "num_samples": file_audio.num_samples,
+        "duration_ms": file_audio.duration_ms,
+        "audio_start_pts_ms": file_audio.audio_start_pts_ms,
+        "audio_start_missing": file_audio.audio_start_missing,
+        "file_offset_ms": file_audio.file_offset_ms,
+        "vfr_suspected": file_audio.vfr_suspected,
+        "silero_segments": [
+            {"start_ms": start, "end_ms": end}
+            for start, end in file_audio.silero_segments_local_ms
+        ],
+        "silero_total_speech_ms": sum(
+            end - start for start, end in file_audio.silero_segments_local_ms
+        ),
+    }
+
+
 # =============================================================================
 # Subprocess wrappers (ffmpeg / ffprobe — never invoked by the self-test)
 # =============================================================================
@@ -455,26 +488,7 @@ def preprocess_batch(
                     "note": "new file boundary within continuous session",
                 },
             )
-        manifest.append(
-            OP_LAYER0_FILE,
-            {
-                "file_index": file_audio.file_index,
-                "source": file_audio.source_path,
-                "wav_sha256": file_audio.wav_sha256,
-                "num_samples": file_audio.num_samples,
-                "duration_ms": file_audio.duration_ms,
-                "audio_start_pts_ms": file_audio.audio_start_pts_ms,
-                "audio_start_missing": file_audio.audio_start_missing,
-                "file_offset_ms": file_audio.file_offset_ms,
-                "vfr_suspected": file_audio.vfr_suspected,
-                "silero_segments_local_ms": [
-                    list(pair) for pair in file_audio.silero_segments_local_ms
-                ],
-                "silero_total_speech_ms": sum(
-                    e - s for s, e in file_audio.silero_segments_local_ms
-                ),
-            },
-        )
+        manifest.append(OP_LAYER0_FILE, layer0_file_payload(file_audio))
     return BatchAudio(files=files)
 
 
@@ -602,6 +616,27 @@ def _selftest_stdlib() -> int:
     assert files[0].to_global_ms(1000) == 1000
     assert files[1].to_global_ms(1000) == 301000
     assert files[0].sample_to_local_pts_ms(16000) == 1023
+
+    # 7. OP_LAYER0_FILE payload passes Rule 6 (validate_time_fields), and
+    #    the nested segment shape is actively covered by it — guards
+    #    against payload-shape regressions preprocess_batch can't show
+    #    under the zero-pip policy (it needs ffmpeg + Silero).
+    file_audio = _fake(0, 300000, 23)
+    file_audio.silero_segments_local_ms = [(23, 1373), (2500, 4000)]
+    payload = layer0_file_payload(file_audio)
+    validate_time_fields(payload)  # must not raise
+    assert payload["silero_segments"] == [
+        {"start_ms": 23, "end_ms": 1373},
+        {"start_ms": 2500, "end_ms": 4000},
+    ]
+    assert payload["silero_total_speech_ms"] == 2850
+    payload["silero_segments"][0]["start_ms"] = 23.0  # corrupt one boundary
+    try:
+        validate_time_fields(payload)
+    except ManifestTimeError:
+        pass
+    else:
+        raise AssertionError("Rule 6 missed a float inside silero_segments")
 
     assert "torch" not in sys.modules, "self-test imported torch"
     print("layer0_preprocessor stdlib self-test OK — "
