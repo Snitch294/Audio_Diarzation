@@ -303,6 +303,42 @@ def check_runtime_platform(manifest: SessionManifest) -> None:
     )
 
 
+def check_ffmpeg(
+    manifest: SessionManifest,
+    probe: Optional[Callable[[str], str]] = None,
+) -> None:
+    """Layers 0 and 1 shell out to BOTH ffmpeg and ffprobe (extraction,
+    stream probing, frame PTS). A missing binary would otherwise surface
+    mid-batch as an unrecorded FileNotFoundError, so presence is gated
+    here. ``probe`` is injectable for the stdlib self-test; the default
+    shells out and returns the first version line ("" = unusable)."""
+    if probe is None:
+        import subprocess
+
+        def probe(binary: str) -> str:  # type: ignore[misc]
+            try:
+                out = subprocess.run(
+                    [binary, "-version"], capture_output=True, text=True,
+                )
+            except OSError:
+                return ""
+            if out.returncode != 0 or not out.stdout:
+                return ""
+            return out.stdout.splitlines()[0].strip()
+
+    versions = {binary: probe(binary) for binary in ("ffmpeg", "ffprobe")}
+    missing = sorted(name for name, line in versions.items() if not line)
+    if missing:
+        _halt(manifest, "ffmpeg_missing",
+              {"missing": missing,
+               "hint": "sudo apt install ffmpeg "
+                       "(UBUNTU_SETUP_GUIDE.md, system prerequisites)"})
+    manifest.append(
+        Operation.DETERMINISM_CHECK,
+        {"check": "ffmpeg_binaries", "result": "PASS", "versions": versions},
+    )
+
+
 def enforce_torch_determinism(manifest: SessionManifest) -> None:
     """Apply CUDA determinism constants #1-#3 (the env var, #4, was set at
     import time) and verify the CUDA runtime matches the target."""
@@ -354,8 +390,14 @@ def check_onnxruntime_cuda(manifest: SessionManifest) -> None:
 
 
 def check_forbidden_imports(manifest: SessionManifest) -> None:
-    """FLAG 1 guard: the pyannote SpeechBrain-embedding wrapper must never be
-    imported (broken under speechbrain 1.x; unused by SPOVNOB by policy)."""
+    """FLAG 1 guard: no SPOVNOB module may import the pyannote
+    SpeechBrain-embedding wrapper directly (broken under speechbrain 1.x;
+    unused by policy). Scope note: this check runs BEFORE the resident
+    loader; pyannote's own package __init__ later pulls the module into
+    sys.modules transitively (guarded inside pyannote by its optional-
+    backend try/except, never instantiated by SPOVNOB), so post-load
+    presence is expected and is not a violation. The check enforces the
+    realistic violation vector: a direct import by SPOVNOB code."""
     loaded = [m for m in FORBIDDEN_IMPORTS if m in sys.modules]
     if loaded:
         _halt(manifest, "forbidden_module_imported", {"modules": loaded})
@@ -487,6 +529,7 @@ def run_gate(
     resident model registry (or None when ``load_models=False``)."""
     store = Path(model_store)
     check_runtime_platform(manifest)
+    check_ffmpeg(manifest)
     check_versions(manifest)
     check_forbidden_imports(manifest)
     verify_model_store(manifest, store)
@@ -600,6 +643,27 @@ def _selftest_stdlib() -> int:
             raise AssertionError("version mismatch passed verification")
         except EnvironmentGateError:
             pass
+
+        # ffmpeg preflight with injected probes: pass, then halt.
+        with SessionManifest(tmp_dir / "m6.jsonl") as manifest:
+            check_ffmpeg(manifest,
+                         probe=lambda b: f"{b} version 6.1.1-3ubuntu5")
+        try:
+            with SessionManifest(tmp_dir / "m7.jsonl") as manifest:
+                check_ffmpeg(
+                    manifest,
+                    probe=lambda b: "" if b == "ffprobe"
+                    else "ffmpeg version 6.1.1",
+                )
+            raise AssertionError("missing ffprobe passed the gate")
+        except EnvironmentGateError:
+            pass
+        ffmpeg_halts = [
+            e for e in SessionManifest.verify_chain(tmp_dir / "m7.jsonl")
+            if e["operation"] == Operation.BLOCKING_HALT
+        ]
+        assert ffmpeg_halts
+        assert ffmpeg_halts[-1]["payload"]["missing"] == ["ffprobe"]
 
         # Environment variables fixed at import time.
         for key, value in DETERMINISM_ENV.items():

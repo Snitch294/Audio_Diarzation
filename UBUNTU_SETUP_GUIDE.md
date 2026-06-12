@@ -194,6 +194,7 @@ and exits non-zero.
 | `hash_registry_missing` | freeze step skipped | run `--freeze-hashes` on the staging box |
 | `gpu_determinism_failure` | driver/library drift | verify driver ≥ 535, exact wheel pins; do not proceed |
 | `wrong_platform` / `wrong_python` | not Ubuntu / not 3.10 venv | use the §2 venv on the deployment box |
+| `ffmpeg_missing` | ffmpeg and/or ffprobe not on PATH | `sudo apt install ffmpeg` (§1), then re-run the gate |
 
 ---
 
@@ -205,3 +206,4 @@ and exits non-zero.
 - *2026-06-12 — Module 4 (layer3_contamination.py): no new dependencies. Uses the resident PyAnnote OVD pipeline (already vendored: pyannote-segmentation-3.0). Run (full chain gate → Layers 0-3): `python3 layer3_contamination.py --run --videos <files...> --clicks clicks.json --work-dir <dir> --model-store <store> --manifest <jsonl>`. Outputs: final verified clean segment WAVs + sidecars under `<work-dir>/layer3/clean/`, NaN exclusion log in the manifest, and `<work-dir>/layer3/layer3_output.json` (canonical JSON, SHA-256 in manifest).*
 - *2026-06-12 — WavLM/HuBERT removal: behavioral analysis deferred to a separate design phase. `transformers` dropped from requirements.txt; `facebook/hubert-large-ll60k` dropped from the model store (§4) — **five** resident models. If you already vendored HuBERT, delete `model_store/hubert-large-ll60k/` and re-run `--freeze-hashes` (the gate rejects unexpected files).*
 - *2026-06-12 — Module 5 (pipeline_runner.py): no new dependencies. **This is the production entrypoint** for full batch runs: `python3 pipeline_runner.py --run --videos <files...> --clicks clicks.json --work-dir <dir> --model-store <store> --manifest <jsonl> [--operator <id>]`. Chains gate → Layers 0-3, writes `<work-dir>/pipeline_output.json` (canonical, SHA-256 in manifest), re-verifies the full manifest hash chain from disk after close, and prints per-stage wall timings (console only — never in payloads).*
+- *2026-06-12 — Pre-deployment hardening audit: no new dependencies. (1) The gate now verifies **ffmpeg AND ffprobe** on PATH as step 2 (new halt reason `ffmpeg_missing` — previously a missing binary failed mid-batch as an unrecorded FileNotFoundError). (2) Layer 2 calibration now handles a seed-only (single-window) enrollment pool by routing to `FALLBACK_DEFAULTS` instead of crashing in the leave-one-out scorer. (3) Operator-click face-match failures (`no_face_at_speaking_click` / `no_face_at_anti_click`) now write the re-click WARNING to the manifest before raising, like every other re-click path.*

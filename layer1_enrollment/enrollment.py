@@ -518,10 +518,15 @@ def run_layer1(
 
         # --- Video 1 only: clicks -> F_target, E_seed, optional Track C ----
         if f_target is None:
-            anchor, _ = _face_at_click(
-                frames, clicks.speaking.pts_ms,
-                clicks.speaking.x, clicks.speaking.y,
-            )
+            try:
+                anchor, _ = _face_at_click(
+                    frames, clicks.speaking.pts_ms,
+                    clicks.speaking.x, clicks.speaking.y,
+                )
+            except Layer1ReclickError as exc:
+                _reclick(manifest, "no_face_at_speaking_click",
+                         {"pts_ms": clicks.speaking.pts_ms,
+                          "detail": str(exc)})
             anchor_obs = _build_obs(
                 frames, anchor.embedding, None, file_audio, params,
             )
@@ -577,9 +582,15 @@ def run_layer1(
 
             # Track C — operator anti-profile click (optional, prioritized)
             if clicks.anti is not None:
-                anti_face, anti_pts = _face_at_click(
-                    frames, clicks.anti.pts_ms, clicks.anti.x, clicks.anti.y,
-                )
+                try:
+                    anti_face, anti_pts = _face_at_click(
+                        frames, clicks.anti.pts_ms,
+                        clicks.anti.x, clicks.anti.y,
+                    )
+                except Layer1ReclickError as exc:
+                    _reclick(manifest, "no_face_at_anti_click",
+                             {"pts_ms": clicks.anti.pts_ms,
+                              "detail": str(exc)})
                 sim_to_target = cosine(anti_face.embedding, f_target)
                 if sim_to_target >= params.face_reid_threshold:     # guardrail 3
                     _reclick(manifest, "anti_click_matches_target",
