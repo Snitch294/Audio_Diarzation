@@ -31,6 +31,7 @@ export TRANSFORMERS_OFFLINE=0
 huggingface-cli download speechbrain/spkrec-ecapa-voxceleb
 huggingface-cli download pyannote/segmentation-3.0
 ```
+*Air-gap caution: on the production box, prefer fixing this by making the vendored model-store directory complete (every repo file, including `label_encoder.txt` and `hyperparams.yaml`), rather than relying on the global HF cache — the cache lives outside `expected_hashes.json`, so a cache-dependent load is not covered by the startup checksum gate. See `SPOVNOB_TECHNICAL_DEEP_DIVE.md`, Part IX.*
 
 ### 4. `expected_hashes.json` Permission Denied Error
 **The Problem:** Running `python environment_gate.py --freeze-hashes` creates the hash registry file. If you ever need to re-run it (for example, if a model updates), the script throws a `PermissionError` because it intentionally locks the file to prevent tampering.
@@ -51,8 +52,8 @@ sudo apt install -y nodejs
 sudo npm install -g @anthropic-ai/claude-code
 ```
 
-### 6. The `ManifestTimeError` Pipeline Crash
-**The Problem:** `session_manifest.py` enforces a strict rule: any dictionary key ending in `_ms` must be an integer. However, out of the box, `layer0_preprocessor.py` tries to log a *list* of segment arrays under the key `silero_segments_local_ms`, which instantly crashes the pipeline.
-**The Fix:** Edit `layer0_preprocessor.py` around line 470. Change the key from `"silero_segments_local_ms"` to `"silero_segments_list"` so it bypasses the integer validation rule.
+### 6. The `ManifestTimeError` Pipeline Crash — FIXED IN REPO (no manual edit needed)
+**The Problem:** `session_manifest.py` enforces Rule 6: any dictionary key ending in `_ms` must hold an integer. `layer0_preprocessor.py` used to log a *list* of segment pairs under the key `silero_segments_local_ms`, which crashed the pipeline at the first Layer 0 manifest write.
+**The Fix (already shipped):** Fixed properly in commit `7dc3daa` — the payload key is now `silero_segments`, holding nested `{"start_ms": ..., "end_ms": ...}` dicts, so Rule 6 actively validates every segment boundary as an integer instead of being bypassed. The shape is covered by `python3 layer0_preprocessor.py --selftest`. **On the server, just `git pull` — do not apply the old manual rename to `silero_segments_list`; that workaround is superseded.**
 
 *Note: WSL2-specific issues (like installing WSL, or using the Windows NVIDIA driver instead of the Linux one) were omitted here since they will not apply to your bare-metal Ubuntu server tomorrow.*
