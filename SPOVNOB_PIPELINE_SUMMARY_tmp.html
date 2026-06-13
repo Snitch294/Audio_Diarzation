@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>SPOVNOB_PIPELINE_SUMMARY.md</title>
+<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+
+<style>
+/* https://github.com/microsoft/vscode/blob/master/extensions/markdown-language-features/media/markdown.css */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+body {
+	font-family: var(--vscode-markdown-font-family, -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif);
+	font-size: var(--vscode-markdown-font-size, 14px);
+	padding: 0 26px;
+	line-height: var(--vscode-markdown-line-height, 22px);
+	word-wrap: break-word;
+}
+
+#code-csp-warning {
+	position: fixed;
+	top: 0;
+	right: 0;
+	color: white;
+	margin: 16px;
+	text-align: center;
+	font-size: 12px;
+	font-family: sans-serif;
+	background-color:#444444;
+	cursor: pointer;
+	padding: 6px;
+	box-shadow: 1px 1px 1px rgba(0,0,0,.25);
+}
+
+#code-csp-warning:hover {
+	text-decoration: none;
+	background-color:#007acc;
+	box-shadow: 2px 2px 2px rgba(0,0,0,.25);
+}
+
+body.scrollBeyondLastLine {
+	margin-bottom: calc(100vh - 22px);
+}
+
+body.showEditorSelection .code-line {
+	position: relative;
+}
+
+body.showEditorSelection .code-active-line:before,
+body.showEditorSelection .code-line:hover:before {
+	content: "";
+	display: block;
+	position: absolute;
+	top: 0;
+	left: -12px;
+	height: 100%;
+}
+
+body.showEditorSelection li.code-active-line:before,
+body.showEditorSelection li.code-line:hover:before {
+	left: -30px;
+}
+
+.vscode-light.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.15);
+}
+
+.vscode-light.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.40);
+}
+
+.vscode-light.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-dark.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.4);
+}
+
+.vscode-dark.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.60);
+}
+
+.vscode-dark.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-high-contrast.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 160, 0, 0.7);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 160, 0, 1);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+img {
+	max-width: 100%;
+	max-height: 100%;
+}
+
+a {
+	text-decoration: none;
+}
+
+a:hover {
+	text-decoration: underline;
+}
+
+a:focus,
+input:focus,
+select:focus,
+textarea:focus {
+	outline: 1px solid -webkit-focus-ring-color;
+	outline-offset: -1px;
+}
+
+hr {
+	border: 0;
+	height: 2px;
+	border-bottom: 2px solid;
+}
+
+h1 {
+	padding-bottom: 0.3em;
+	line-height: 1.2;
+	border-bottom-width: 1px;
+	border-bottom-style: solid;
+}
+
+h1, h2, h3 {
+	font-weight: normal;
+}
+
+table {
+	border-collapse: collapse;
+}
+
+table > thead > tr > th {
+	text-align: left;
+	border-bottom: 1px solid;
+}
+
+table > thead > tr > th,
+table > thead > tr > td,
+table > tbody > tr > th,
+table > tbody > tr > td {
+	padding: 5px 10px;
+}
+
+table > tbody > tr + tr > td {
+	border-top: 1px solid;
+}
+
+blockquote {
+	margin: 0 7px 0 5px;
+	padding: 0 16px 0 10px;
+	border-left-width: 5px;
+	border-left-style: solid;
+}
+
+code {
+	font-family: Menlo, Monaco, Consolas, "Droid Sans Mono", "Courier New", monospace, "Droid Sans Fallback";
+	font-size: 1em;
+	line-height: 1.357em;
+}
+
+body.wordWrap pre {
+	white-space: pre-wrap;
+}
+
+pre:not(.hljs),
+pre.hljs code > div {
+	padding: 16px;
+	border-radius: 3px;
+	overflow: auto;
+}
+
+pre code {
+	color: var(--vscode-editor-foreground);
+	tab-size: 4;
+}
+
+/** Theming */
+
+.vscode-light pre {
+	background-color: rgba(220, 220, 220, 0.4);
+}
+
+.vscode-dark pre {
+	background-color: rgba(10, 10, 10, 0.4);
+}
+
+.vscode-high-contrast pre {
+	background-color: rgb(0, 0, 0);
+}
+
+.vscode-high-contrast h1 {
+	border-color: rgb(0, 0, 0);
+}
+
+.vscode-light table > thead > tr > th {
+	border-color: rgba(0, 0, 0, 0.69);
+}
+
+.vscode-dark table > thead > tr > th {
+	border-color: rgba(255, 255, 255, 0.69);
+}
+
+.vscode-light h1,
+.vscode-light hr,
+.vscode-light table > tbody > tr + tr > td {
+	border-color: rgba(0, 0, 0, 0.18);
+}
+
+.vscode-dark h1,
+.vscode-dark hr,
+.vscode-dark table > tbody > tr + tr > td {
+	border-color: rgba(255, 255, 255, 0.18);
+}
+
+</style>
+
+<style>
+/* Tomorrow Theme */
+/* http://jmblog.github.com/color-themes-for-google-code-highlightjs */
+/* Original theme - https://github.com/chriskempson/tomorrow-theme */
+
+/* Tomorrow Comment */
+.hljs-comment,
+.hljs-quote {
+	color: #8e908c;
+}
+
+/* Tomorrow Red */
+.hljs-variable,
+.hljs-template-variable,
+.hljs-tag,
+.hljs-name,
+.hljs-selector-id,
+.hljs-selector-class,
+.hljs-regexp,
+.hljs-deletion {
+	color: #c82829;
+}
+
+/* Tomorrow Orange */
+.hljs-number,
+.hljs-built_in,
+.hljs-builtin-name,
+.hljs-literal,
+.hljs-type,
+.hljs-params,
+.hljs-meta,
+.hljs-link {
+	color: #f5871f;
+}
+
+/* Tomorrow Yellow */
+.hljs-attribute {
+	color: #eab700;
+}
+
+/* Tomorrow Green */
+.hljs-string,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-addition {
+	color: #718c00;
+}
+
+/* Tomorrow Blue */
+.hljs-title,
+.hljs-section {
+	color: #4271ae;
+}
+
+/* Tomorrow Purple */
+.hljs-keyword,
+.hljs-selector-tag {
+	color: #8959a8;
+}
+
+.hljs {
+	display: block;
+	overflow-x: auto;
+	color: #4d4d4c;
+	padding: 0.5em;
+}
+
+.hljs-emphasis {
+	font-style: italic;
+}
+
+.hljs-strong {
+	font-weight: bold;
+}
+</style>
+
+<style>
+/*
+ * Markdown PDF CSS
+ */
+
+ body {
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif, "Meiryo";
+	padding: 0 12px;
+}
+
+pre {
+	background-color: #f8f8f8;
+	border: 1px solid #cccccc;
+	border-radius: 3px;
+	overflow-x: auto;
+	white-space: pre-wrap;
+	overflow-wrap: break-word;
+}
+
+pre:not(.hljs) {
+	padding: 23px;
+	line-height: 19px;
+}
+
+blockquote {
+	background: rgba(127, 127, 127, 0.1);
+	border-color: rgba(0, 122, 204, 0.5);
+}
+
+.emoji {
+	height: 1.4em;
+}
+
+code {
+	font-size: 14px;
+	line-height: 19px;
+}
+
+/* for inline code */
+:not(pre):not(.hljs) > code {
+	color: #C9AE75; /* Change the old color so it seems less like an error */
+	font-size: inherit;
+}
+
+/* Page Break : use <div class="page"/> to insert page break
+-------------------------------------------------------- */
+.page {
+	page-break-after: always;
+}
+
+</style>
+
+<script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
+</head>
+<body>
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: document.body.classList.contains('vscode-dark') || document.body.classList.contains('vscode-high-contrast')
+          ? 'dark'
+          : 'default'
+    });
+  </script>
+<h1 id="spovnob--forensic-audio-diarization-pipeline--team-summary">SPOVNOB — Forensic Audio Diarization Pipeline · Team Summary</h1>
+<p><strong>Last updated:</strong> 2026-06-12 · <strong>Status:</strong> All modules complete (behavioral analysis deferred)<br>
+<strong>Deployment target:</strong> Ubuntu 22.04 LTS · NVIDIA RTX 6000 Ada (48 GB VRAM) · Python 3.10 · CUDA 12.1</p>
+<hr>
+<h2 id="what-spovnob-does-one-paragraph">What SPOVNOB Does (One Paragraph)</h2>
+<p>SPOVNOB is a forensic speaker diarization pipeline. It takes a batch of 5–15 interview-style video clips (5–10 min each, one continuous session), and outputs <strong>clean, PTS-timestamped audio segments containing only the target speaker's uncontaminated speech</strong> — nothing synthesized, nothing repaired, nothing guessed. It is fully air-gapped, fully deterministic (bit-identical outputs for identical inputs on any re-run), and records every decision, parameter, and discard in an append-only, hash-chained session manifest. The output is the input contract for a future behavioral/paralinguistic analysis phase.</p>
+<hr>
+<h2 id="pipeline-architecture-at-a-glance">Pipeline Architecture at a Glance</h2>
+<pre class="hljs"><code><div>RAW VIDEO BATCH
+      │
+      ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  PRE-FLIGHT                                                     │
+│  • Session Manifest initialized (append-only, hash-chained)     │
+│  • Environment Gate: SHA-256 verify all 5 model weight sets     │
+│    ↳ Checksum mismatch → BLOCKING HALT before any processing    │
+│  • CUDA determinism enforced (4 mandatory constants + float32)  │
+│  • All 5 models loaded once, stay resident for entire batch     │
+└─────────────────────────────────────────────────────────────────┘
+      │
+      ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  LAYER 0 — Foundational Extraction                              │
+│  • FFmpeg strips audio → 16 kHz mono WAV, PTS-true timestamps   │
+│    (no frame-counting; protects against VFR clock desync)       │
+│  • Silero VAD (CPU, ~1 MB) produces speech segment map          │
+│    ↳ Non-destructive — audio is NEVER modified, only labelled   │
+│  • Full batch audio preloaded into RAM for zero-latency reads   │
+└─────────────────────────────────────────────────────────────────┘
+      │
+      ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  LAYER 1 — Visual-Anchored Enrollment            (sequential)   │
+│                                                                 │
+│  Operator provides 2 clicks on Video 1:                         │
+│    Click 1 (mandatory) — target face while clearly speaking     │
+│    Click 2 (optional)  — interviewer face while lips closed     │
+│                                                                 │
+│  Phase 1: YOLOv8 + InsightFace lock onto target face (F_target) │
+│           ECAPA-TDNN extracts seed d-vector E_seed (3–30 s)     │
+│                                                                 │
+│  Phase 2: Anti-profile built (E_anti)                           │
+│    • Track C — operator click on interviewer (high confidence)  │
+│    • Track B — auto-collected: non-target face, lips closed,    │
+│      audio present, M-Trap guard prevents target self-enrollment│
+│                                                                 │
+│  Phase 3: Full-video Dual-Track Visual Confirmation Loop        │
+│    • Track A — target face present + lips moving → E_window     │
+│    • Every E_window passes Triple Validation Gate:              │
+│        Gate A: Silero confirms speech + interviewer lips closed  │
+│        Gate B: cosine_sim(window, E_seed) ≥ threshold_target    │
+│        Gate C: cosine_sim(window, E_anti) ≤ threshold_anti      │
+│                AND sim(target)−sim(anti) ≥ margin_minimum       │
+│    • Accepted windows → cumulative pool → E_composite (running  │
+│      duration-weighted mean-pool, recalculated after each video)│
+│                                                                 │
+│  Enrollment quality gates after each video:                     │
+│    STRONG (≥ 45 s, low variance) → E_composite promoted, batch  │
+│      proceeds to authoritative Layer 2 pass                     │
+│    MARGINAL (20–45 s or high variance) → second pass, carry fwd │
+│    INSUFFICIENT (&lt; 20 s) → file flagged PENDING, carry forward  │
+│    CRITICAL FAILURE (all videos exhausted, still insufficient)  │
+│      → terminal halt, operator required                         │
+│                                                                 │
+│  E_composite FROZEN after Layer 1 completes. Never modified.    │
+└─────────────────────────────────────────────────────────────────┘
+      │
+      ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  LAYER 2 — Pure ECAPA Sliding-Window Scanning    (parallel)     │
+│                                                                 │
+│  Input: frozen E_composite + E_anti + raw 16 kHz audio          │
+│                                                                 │
+│  1. Sanity check: sim(E_composite, E_anti) → warning or halt    │
+│  2. Deterministic threshold calibration (per session):          │
+│       theta_high = max(q10 of genuine LOO scores,               │
+│                        max impostor score + 0.05), clamped      │
+│       theta_med  = theta_high − 0.15                            │
+│  3. Slide 5 s window (1 s hop) across raw audio in batches      │
+│     of 256 → ECAPA d-vector per window → cosine similarity      │
+│     S_target vs E_composite, S_interviewer vs E_anti            │
+│     (Windows &lt; 20% Silero speech overlap are skipped, logged)   │
+│  4. Median pooling per 1 s block (strips boundary artifacts)    │
+│  5. Confidence tiering:                                         │
+│       HIGH   → S_target &gt; theta_high AND margin &gt; 0.15         │
+│       MEDIUM → theta_med – theta_high (human review only)       │
+│       &lt; 0.20 → rejected, timestamp logged                       │
+│  6. Edge-trim refinement: 2 s windows at 250 ms hop trim HIGH   │
+│     block edges inward only — never extend (forensically safe)  │
+│  7. Activity ratio check vs Silero total speech (advisory)      │
+│                                                                 │
+│  Single authoritative pass after Layer 1 completes across ALL   │
+│  videos — every file scored against final E_composite_final.    │
+│  SHA-256 output hash recorded in manifest.                      │
+└─────────────────────────────────────────────────────────────────┘
+      │
+      ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  LAYER 3 — Contamination Flagging &amp; Temporal Smoothing          │
+│                                                                 │
+│  Input: raw un-smoothed HIGH-confidence blocks from Layer 2     │
+│                                                                 │
+│  • PyAnnote OVD (Overlapping Voice Detection) checks every      │
+│    block and every inter-block gap for simultaneous speech      │
+│  • NaN-Only Exclusion Policy: overlap detected → entire block   │
+│    logged as NaN (contaminated) and permanently excluded        │
+│    ↳ NO separation models ever. Hallucinated audio is           │
+│      forensically indefensible.                                 │
+│  • Clean blocks: gaps &lt; 400 ms bridged (natural plosives only,  │
+│    and only across confirmed-clean gaps)                        │
+│                                                                 │
+│  Output: PTS-stamped, target-isolated CLEAN speech segments     │
+└─────────────────────────────────────────────────────────────────┘
+      │
+      ▼
+  FINAL OUTPUT
+  Clean, verified, original-signal audio segments of the target
+  speaker. Ready for downstream behavioral analysis (deferred).
+</div></code></pre>
+<hr>
+<h2 id="key-design-principles">Key Design Principles</h2>
+<table>
+<thead>
+<tr>
+<th>Principle</th>
+<th>What it means in practice</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>No synthesis, ever</strong></td>
+<td>Contaminated windows are excluded, not repaired. Separation models are explicitly forbidden.</td>
+</tr>
+<tr>
+<td><strong>Visual anchoring</strong></td>
+<td>Identity is locked visually (InsightFace face embedding) before any acoustic enrollment begins. Acoustic models never decide who someone is from scratch.</td>
+</tr>
+<tr>
+<td><strong>Static enrollment</strong></td>
+<td>E_composite is frozen after Layer 1. No feedback loop in Layer 2. Same inputs → bit-identical outputs on any date, any machine.</td>
+</tr>
+<tr>
+<td><strong>Air-gapped &amp; offline</strong></td>
+<td>All 5 model weights pre-staged locally with SHA-256 pins. <code>HF_HUB_OFFLINE=1</code>. Any checksum mismatch is a blocking halt.</td>
+</tr>
+<tr>
+<td><strong>Append-only audit trail</strong></td>
+<td>Session manifest is never modified after a write. Every decision, threshold override, discard, and operator action has an immutable record with UTC timestamp.</td>
+</tr>
+<tr>
+<td><strong>PTS-only timestamps</strong></td>
+<td>All times are integer milliseconds derived from Presentation Timestamps. No frame counting. No floats for time anywhere in the codebase.</td>
+</tr>
+<tr>
+<td><strong>Conservative by default</strong></td>
+<td>MEDIUM-confidence windows are never auto-promoted. Ambiguous margins are discarded. Missed speech is preferred over contaminated speech.</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="models-used">Models Used</h2>
+<table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Role</th>
+<th>Runs on</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Silero VAD</strong> (~1 MB)</td>
+<td>Speech / silence segment map</td>
+<td>CPU</td>
+</tr>
+<tr>
+<td><strong>YOLOv8</strong></td>
+<td>Person detection per frame</td>
+<td>GPU</td>
+</tr>
+<tr>
+<td><strong>InsightFace buffalo_l</strong></td>
+<td>Face biometric lock (F_target)</td>
+<td>GPU</td>
+</tr>
+<tr>
+<td><strong>ECAPA-TDNN C=1024</strong> (SpeechBrain)</td>
+<td>Speaker d-vector extraction and scoring</td>
+<td>GPU</td>
+</tr>
+<tr>
+<td><strong>PyAnnote OVD</strong></td>
+<td>Overlapping speech detection</td>
+<td>GPU</td>
+</tr>
+</tbody>
+</table>
+<p>All five are loaded once at batch start and held resident. No model is unloaded between files.</p>
+<hr>
+<h2 id="operator-input-required">Operator Input Required</h2>
+<p>Only <strong>2 clicks</strong> on Video 1, before processing starts. A purpose-built <strong>Click UI</strong> (<code>click_ui.py</code>, Flask web app) assists the operator with live face overlays, MAR readouts, face-count timeline strips, and real-time guardrail feedback — so invalid clicks are caught immediately with plain-English explanations.</p>
+<table>
+<thead>
+<tr>
+<th>Click</th>
+<th>Target</th>
+<th>When</th>
+<th>Required?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Speaking Click</strong></td>
+<td>Target speaker</td>
+<td>While target is visibly speaking</td>
+<td><strong>Mandatory</strong></td>
+</tr>
+<tr>
+<td><strong>Anti-Profile Click</strong></td>
+<td>Interviewer</td>
+<td>Interviewer on camera, lips closed, audio present</td>
+<td>Optional (NO_ANTI path if omitted)</td>
+</tr>
+</tbody>
+</table>
+<p>After Video 1, all anchors (F_target, E_seed, E_anti, cumulative pool) propagate automatically across all remaining videos. No further clicks are needed unless a guardrail fails.</p>
+<hr>
+<h2 id="module-map">Module Map</h2>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Role</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>session_manifest.py</code></td>
+<td>Append-only, hash-chained audit log</td>
+<td>✅ Complete</td>
+</tr>
+<tr>
+<td><code>environment_gate.py</code></td>
+<td>SHA-256 model vendoring gate + CUDA determinism setup</td>
+<td>✅ Complete</td>
+</tr>
+<tr>
+<td><code>layer0_preprocessor.py</code></td>
+<td>FFmpeg PTS extraction + Silero VAD segment map</td>
+<td>✅ Complete</td>
+</tr>
+<tr>
+<td><code>layer1_enrollment/</code></td>
+<td>Visual enrollment, E_seed, E_anti, E_composite</td>
+<td>✅ Complete</td>
+</tr>
+<tr>
+<td><code>layer2_tracker.py</code></td>
+<td>ECAPA sliding-window scanning + threshold calibration</td>
+<td>✅ Complete</td>
+</tr>
+<tr>
+<td><code>layer3_contamination.py</code></td>
+<td>PyAnnote OVD overlap exclusion + temporal smoothing</td>
+<td>✅ Complete</td>
+</tr>
+<tr>
+<td><code>pipeline_runner.py</code></td>
+<td>Production batch orchestrator (entrypoint)</td>
+<td>✅ Complete</td>
+</tr>
+<tr>
+<td><code>click_ui.py</code></td>
+<td>Operator clicking web UI (Flask)</td>
+<td>🔲 Planned</td>
+</tr>
+<tr>
+<td>Behavioral analysis</td>
+<td>Downstream paralinguistic analysis</td>
+<td>⏸ Deferred</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<p><em>SPOVNOB — Revision 3.1 · Summary prepared 2026-06-12</em></p>
+
+</body>
+</html>

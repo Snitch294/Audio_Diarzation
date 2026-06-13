@@ -220,7 +220,12 @@ def loo_scores(
 ) -> List[float]:
     """Leave-one-out genuine scores: each pool vector against the
     duration-weighted mean of the others (the same arithmetic the
-    enrollment pool itself uses)."""
+    enrollment pool itself uses). A pool with fewer than two vectors has
+    no leave-one-out counterpart and yields no scores — the caller's
+    minimum-data rule then routes calibration to FALLBACK_DEFAULTS (a
+    single >=20s seed window can legitimately reach Layer 2 alone)."""
+    if len(vectors) < 2:
+        return []
     scores: List[float] = []
     for index in range(len(vectors)):
         rest = [v for k, v in enumerate(vectors) if k != index]
@@ -740,9 +745,16 @@ def _ecapa_scorer(
                         .to(torch.float32) / 32768.0
                     )
                 pad = batch_size - len(tensors)
-                if pad and len(indices) > batch_size:
-                    # Fixed batch shape: repeat the last window; padded
-                    # outputs are discarded below.
+                if pad:
+                    # Fixed batch shape (architectural guarantee): EVERY
+                    # forward pass runs at exactly ECAPA_BATCH_WINDOWS by
+                    # repeating the last window — including sub-256 length
+                    # groups (the common short-clip case), not only the
+                    # remainder of an over-256 group. Padded rows are
+                    # discarded below (results are filled by batch_indices
+                    # only), so the identical-shape determinism guarantee in
+                    # this module's docstring holds for every file regardless
+                    # of how many windows it produced.
                     tensors.extend([tensors[-1]] * pad)
                 stacked = torch.stack(tensors)
                 with torch.no_grad():
@@ -1024,6 +1036,8 @@ def _selftest_stdlib() -> int:
                for s in loo_scores([e1, e1, e1], [1000, 1000, 1000]))
     mixed = loo_scores([e1, e1, e2], [1000, 1000, 1000])
     assert abs(mixed[0] - (0.5 ** 0.5)) < 1e-9     # cos(e1, norm(e1+e2))
+    assert loo_scores([e1], [3000]) == []          # seed-only pool: no LOO
+    assert loo_scores([], []) == []
 
     # 3. threshold derivation
     genuine = [0.58, 0.60, 0.62, 0.64, 0.66, 0.68, 0.70, 0.72, 0.74, 0.76]
@@ -1043,6 +1057,8 @@ def _selftest_stdlib() -> int:
     fallback = derive_thresholds([0.9] * 5, [0.2], True, "ref", params)
     assert fallback.kind == CAL_FALLBACK
     assert fallback.theta_high == 0.60 and fallback.theta_med == 0.40
+    seed_only = derive_thresholds([], [0.2], True, "ref", params)
+    assert seed_only.kind == CAL_FALLBACK          # empty LOO -> fallback
     assert derive_thresholds(genuine, [0.20, 0.30], True, "ref", params
                              ).calibration_ref == cal.calibration_ref
 

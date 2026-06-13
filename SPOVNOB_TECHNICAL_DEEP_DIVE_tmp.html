@@ -1,0 +1,1364 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>SPOVNOB_TECHNICAL_DEEP_DIVE.md</title>
+<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+
+<style>
+/* https://github.com/microsoft/vscode/blob/master/extensions/markdown-language-features/media/markdown.css */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+body {
+	font-family: var(--vscode-markdown-font-family, -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif);
+	font-size: var(--vscode-markdown-font-size, 14px);
+	padding: 0 26px;
+	line-height: var(--vscode-markdown-line-height, 22px);
+	word-wrap: break-word;
+}
+
+#code-csp-warning {
+	position: fixed;
+	top: 0;
+	right: 0;
+	color: white;
+	margin: 16px;
+	text-align: center;
+	font-size: 12px;
+	font-family: sans-serif;
+	background-color:#444444;
+	cursor: pointer;
+	padding: 6px;
+	box-shadow: 1px 1px 1px rgba(0,0,0,.25);
+}
+
+#code-csp-warning:hover {
+	text-decoration: none;
+	background-color:#007acc;
+	box-shadow: 2px 2px 2px rgba(0,0,0,.25);
+}
+
+body.scrollBeyondLastLine {
+	margin-bottom: calc(100vh - 22px);
+}
+
+body.showEditorSelection .code-line {
+	position: relative;
+}
+
+body.showEditorSelection .code-active-line:before,
+body.showEditorSelection .code-line:hover:before {
+	content: "";
+	display: block;
+	position: absolute;
+	top: 0;
+	left: -12px;
+	height: 100%;
+}
+
+body.showEditorSelection li.code-active-line:before,
+body.showEditorSelection li.code-line:hover:before {
+	left: -30px;
+}
+
+.vscode-light.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.15);
+}
+
+.vscode-light.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.40);
+}
+
+.vscode-light.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-dark.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.4);
+}
+
+.vscode-dark.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.60);
+}
+
+.vscode-dark.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-high-contrast.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 160, 0, 0.7);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 160, 0, 1);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+img {
+	max-width: 100%;
+	max-height: 100%;
+}
+
+a {
+	text-decoration: none;
+}
+
+a:hover {
+	text-decoration: underline;
+}
+
+a:focus,
+input:focus,
+select:focus,
+textarea:focus {
+	outline: 1px solid -webkit-focus-ring-color;
+	outline-offset: -1px;
+}
+
+hr {
+	border: 0;
+	height: 2px;
+	border-bottom: 2px solid;
+}
+
+h1 {
+	padding-bottom: 0.3em;
+	line-height: 1.2;
+	border-bottom-width: 1px;
+	border-bottom-style: solid;
+}
+
+h1, h2, h3 {
+	font-weight: normal;
+}
+
+table {
+	border-collapse: collapse;
+}
+
+table > thead > tr > th {
+	text-align: left;
+	border-bottom: 1px solid;
+}
+
+table > thead > tr > th,
+table > thead > tr > td,
+table > tbody > tr > th,
+table > tbody > tr > td {
+	padding: 5px 10px;
+}
+
+table > tbody > tr + tr > td {
+	border-top: 1px solid;
+}
+
+blockquote {
+	margin: 0 7px 0 5px;
+	padding: 0 16px 0 10px;
+	border-left-width: 5px;
+	border-left-style: solid;
+}
+
+code {
+	font-family: Menlo, Monaco, Consolas, "Droid Sans Mono", "Courier New", monospace, "Droid Sans Fallback";
+	font-size: 1em;
+	line-height: 1.357em;
+}
+
+body.wordWrap pre {
+	white-space: pre-wrap;
+}
+
+pre:not(.hljs),
+pre.hljs code > div {
+	padding: 16px;
+	border-radius: 3px;
+	overflow: auto;
+}
+
+pre code {
+	color: var(--vscode-editor-foreground);
+	tab-size: 4;
+}
+
+/** Theming */
+
+.vscode-light pre {
+	background-color: rgba(220, 220, 220, 0.4);
+}
+
+.vscode-dark pre {
+	background-color: rgba(10, 10, 10, 0.4);
+}
+
+.vscode-high-contrast pre {
+	background-color: rgb(0, 0, 0);
+}
+
+.vscode-high-contrast h1 {
+	border-color: rgb(0, 0, 0);
+}
+
+.vscode-light table > thead > tr > th {
+	border-color: rgba(0, 0, 0, 0.69);
+}
+
+.vscode-dark table > thead > tr > th {
+	border-color: rgba(255, 255, 255, 0.69);
+}
+
+.vscode-light h1,
+.vscode-light hr,
+.vscode-light table > tbody > tr + tr > td {
+	border-color: rgba(0, 0, 0, 0.18);
+}
+
+.vscode-dark h1,
+.vscode-dark hr,
+.vscode-dark table > tbody > tr + tr > td {
+	border-color: rgba(255, 255, 255, 0.18);
+}
+
+</style>
+
+<style>
+/* Tomorrow Theme */
+/* http://jmblog.github.com/color-themes-for-google-code-highlightjs */
+/* Original theme - https://github.com/chriskempson/tomorrow-theme */
+
+/* Tomorrow Comment */
+.hljs-comment,
+.hljs-quote {
+	color: #8e908c;
+}
+
+/* Tomorrow Red */
+.hljs-variable,
+.hljs-template-variable,
+.hljs-tag,
+.hljs-name,
+.hljs-selector-id,
+.hljs-selector-class,
+.hljs-regexp,
+.hljs-deletion {
+	color: #c82829;
+}
+
+/* Tomorrow Orange */
+.hljs-number,
+.hljs-built_in,
+.hljs-builtin-name,
+.hljs-literal,
+.hljs-type,
+.hljs-params,
+.hljs-meta,
+.hljs-link {
+	color: #f5871f;
+}
+
+/* Tomorrow Yellow */
+.hljs-attribute {
+	color: #eab700;
+}
+
+/* Tomorrow Green */
+.hljs-string,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-addition {
+	color: #718c00;
+}
+
+/* Tomorrow Blue */
+.hljs-title,
+.hljs-section {
+	color: #4271ae;
+}
+
+/* Tomorrow Purple */
+.hljs-keyword,
+.hljs-selector-tag {
+	color: #8959a8;
+}
+
+.hljs {
+	display: block;
+	overflow-x: auto;
+	color: #4d4d4c;
+	padding: 0.5em;
+}
+
+.hljs-emphasis {
+	font-style: italic;
+}
+
+.hljs-strong {
+	font-weight: bold;
+}
+</style>
+
+<style>
+/*
+ * Markdown PDF CSS
+ */
+
+ body {
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif, "Meiryo";
+	padding: 0 12px;
+}
+
+pre {
+	background-color: #f8f8f8;
+	border: 1px solid #cccccc;
+	border-radius: 3px;
+	overflow-x: auto;
+	white-space: pre-wrap;
+	overflow-wrap: break-word;
+}
+
+pre:not(.hljs) {
+	padding: 23px;
+	line-height: 19px;
+}
+
+blockquote {
+	background: rgba(127, 127, 127, 0.1);
+	border-color: rgba(0, 122, 204, 0.5);
+}
+
+.emoji {
+	height: 1.4em;
+}
+
+code {
+	font-size: 14px;
+	line-height: 19px;
+}
+
+/* for inline code */
+:not(pre):not(.hljs) > code {
+	color: #C9AE75; /* Change the old color so it seems less like an error */
+	font-size: inherit;
+}
+
+/* Page Break : use <div class="page"/> or <div class="page"></div> to insert page break
+-------------------------------------------------------- */
+.page {
+	page-break-after: always;
+}
+
+</style>
+
+<script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
+</head>
+<body>
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: document.body.classList.contains('vscode-dark') || document.body.classList.contains('vscode-high-contrast')
+          ? 'dark'
+          : 'default'
+    });
+  </script>
+<h1 id="spovnob--technical-deep-dive">SPOVNOB — Technical Deep Dive</h1>
+<p><strong>Document:</strong> <code>SPOVNOB_TECHNICAL_DEEP_DIVE.md</code> · v1.0 (first complete draft)
+<strong>Date:</strong> 2026-06-12
+<strong>Ground truth:</strong> the Python modules at repository head (<code>766462b</code>; Modules 0a–5, code-complete) and <code>Audio_Diarization.md</code> Revision 3.1.
+<strong>Authority order:</strong> where any narrative document (including this one) disagrees with the code, <strong>the code is authoritative</strong>. Every divergence between the master specification and the implementation found during the audit for this document is recorded explicitly, most of it in Part IX.
+<strong>Audience:</strong> forensic auditors, reviewing engineers, and future maintainers. The document assumes fluency in Python and basic signal processing, and zero prior exposure to this codebase.</p>
+<p><strong>How to read this document.</strong> Parts I–III establish the doctrine and the two substrate modules everything else stands on (the determinism gate and the session manifest). Parts IV–VII walk the four pipeline layers in execution order, each at the level of exact predicates, constants, and arithmetic. Part VIII closes the end-to-end audit loop. Part IX is the honesty section: everything that is flagged, assumed, or awaiting bench validation. The appendices are complete reference tables. All thresholds quoted use the comparison operator the code actually uses — <code>&gt;</code> and <code>≥</code> are never interchangeable in a forensic gate.</p>
+<hr>
+<h2 id="table-of-contents">Table of Contents</h2>
+<ul>
+<li><strong>Part I — Mission, Constraints, and Forensic Doctrine</strong></li>
+<li><strong>Part II — The Determinism Substrate</strong> (<code>environment_gate.py</code>)</li>
+<li><strong>Part III — The Session Manifest: Chain of Custody as a Data Structure</strong> (<code>session_manifest.py</code>)</li>
+<li><strong>Part IV — Layer 0: PTS-True Extraction and the Speech Map</strong> (<code>layer0_preprocessor.py</code>)</li>
+<li><strong>Part V — Layer 1: Visual-Anchored Enrollment</strong> (<code>layer1_enrollment/</code>)</li>
+<li><strong>Part VI — Layer 2: Calibrated Sliding-Window Tracking</strong> (<code>layer2_tracker.py</code>)</li>
+<li><strong>Part VII — Layer 3: Overlap Exclusion and Final Output</strong> (<code>layer3_contamination.py</code>)</li>
+<li><strong>Part VIII — The Pipeline Runner and the End-to-End Audit Story</strong> (<code>pipeline_runner.py</code>)</li>
+<li><strong>Part IX — Bench-Validation Register and Known Limitations</strong></li>
+<li><strong>Appendix A — Complete Parameter Reference</strong></li>
+<li><strong>Appendix B — Manifest Operation Vocabulary</strong></li>
+<li><strong>Appendix C — Artifact Map, Dependency Graph, and Pinned Stack</strong></li>
+</ul>
+<hr>
+<h1 id="part-i--mission-constraints-and-forensic-doctrine">Part I — Mission, Constraints, and Forensic Doctrine</h1>
+<h2 id="11-what-spovnob-does">1.1 What SPOVNOB does</h2>
+<p>SPOVNOB ingests one <strong>batch</strong> of interview video files — 5 to 15 files of 5–10 minutes each, all cut from <strong>one continuous recording session</strong> (same subject, same room, same microphone, same day) — plus one mandatory operator click (and one optional one) on the first video. It emits <strong>PTS-timestamped WAV segments containing only the visually verified target speaker's speech, verified free of overlapped speech</strong>, each segment SHA-256-hashed, plus a hash-chained audit log recording every parameter, decision, acceptance, discard, warning, and halt that produced them.</p>
+<p>Two properties define the system more than any model inside it:</p>
+<ol>
+<li><strong>Every output sample existed in the source.</strong> The pipeline never synthesizes, interpolates, reconstructs, or separates audio. Output WAVs are byte slices of the original 16 kHz extraction. Contaminated audio is <em>excluded</em>, never repaired.</li>
+<li><strong>The whole run is a deterministic function of its inputs.</strong> Re-running the same batch with the same model store produces bit-identical decision payloads and output hashes. &quot;Same inputs, same date or two years later, same SHA-256s&quot; is the design standard, not an aspiration.</li>
+</ol>
+<h2 id="12-the-non-negotiable-constraints-and-why-each-one-exists">1.2 The non-negotiable constraints, and why each one exists</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Constraint</th>
+<th>Forensic rationale</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td><strong>Bit-identical determinism</strong> (CUDA deterministic mode, float32-only, fixed batch shapes, order-independent reductions)</td>
+<td>An independent auditor must be able to reproduce the run and match hashes. &quot;Statistically similar&quot; output invites the question <em>which run is the evidence?</em> — a question with no good answer. Bit-identity makes verification a string comparison.</td>
+</tr>
+<tr>
+<td>2</td>
+<td><strong>Zero synthesis / zero separation</strong> (HTDemucs, SepFormer, SpeakerBeam and all source-separation models categorically forbidden)</td>
+<td>Separation models <em>hallucinate</em> plausible acoustic structure by construction — they output what the network believes the isolated source sounded like. No witness can testify which emitted sample energies existed in the room. Exclusion is the only mathematically safe operation: it can lose information but cannot invent it.</td>
+</tr>
+<tr>
+<td>3</td>
+<td><strong>Time is absolute integer milliseconds derived from container PTS</strong> — never frame indices, never floats</td>
+<td>Frame-index timing assumes constant frame rate; variable-frame-rate (VFR) footage makes <code>index × nominal_rate</code> drift unboundedly. PTS is the container's own presentation clock. Integers, because float time accumulates representation error and breaks both equality comparison and hashing. Enforced mechanically by manifest Rule 6 (§3.4).</td>
+</tr>
+<tr>
+<td>4</td>
+<td><strong>Fully offline / air-gapped, with checksum-pinned models</strong></td>
+<td>Model weights are part of the evidence chain: a silently updated hub checkpoint changes outputs with no code change. Every weight file's SHA-256 is verified against a frozen registry before anything runs (§2.6); all hub-download code paths are disabled at import time.</td>
+</tr>
+<tr>
+<td>5</td>
+<td><strong>Append-only, hash-chained audit manifest, written before destructive operations</strong></td>
+<td>Chain of custody. Any retroactive edit, deletion, or reorder of the record is detectable by re-hashing (§3.3). The record of an action exists durably <em>before</em> the action does (§3.5).</td>
+</tr>
+<tr>
+<td>6</td>
+<td><strong>Minimal, validated, recorded human input</strong></td>
+<td>Two clicks maximum; every operator threshold override requires an identity and a stated reason, recorded append-only. The human is in the loop but cannot be invisibly in the loop.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="13-why-not-conventional-deep-learning-diarization">1.3 Why not conventional deep-learning diarization</h2>
+<p>SPOVNOB's architecture is best understood as a sequence of refusals, each recorded in the master specification's decision records:</p>
+<ul>
+<li><strong>End-to-end neural diarization (EEND) was eliminated</strong> for two structural hazards. <em>Label permutation:</em> EEND processes audio in chunks and assigns speaker labels that permute freely between chunks; stitching a coherent multi-file identity timeline out of permutation-invariant outputs is mathematically unstable and indefensible under cross-examination. <em>VFR tensor desync:</em> audio-visual EEND variants require perfectly paired audio/video tensors, and pairing VFR footage requires interpolation — which violates constraint 2.</li>
+<li><strong>Clustering diarizers</strong> (embedding + spectral/AHC clustering) answer &quot;how many voices, and which segments group together&quot; — they still leave <em>which cluster is the target</em> to post-hoc inference. SPOVNOB replaces that inference with ground truth: an operator-witnessed visual identity anchor (Part V).</li>
+<li><strong>WavLM-based speaker verification reuse was rejected</strong> on four audited grounds (master spec, Layer 2 Decision Record): the cached final-layer features are the wrong features (published SV heads consume a learnable weighted sum over <em>all</em> transformer layers, because speaker identity concentrates in lower layers); the turnkey checkpoint's backbone has diverged from the vanilla backbone; the accuracy delta is marginal at this operating point (two known speakers, same room, same microphone, ≥45 s verified enrollment — UniSpeech VoxCeleb1-O EERs: standalone ECAPA 1.08 %, frozen-WavLM+head 0.75 %, jointly fine-tuned 0.43 %, all measured on a far harder open-set task); and forensic defensibility favors the most independently replicated open speaker encoder in existence over a research-repo integration. The corollary: WavLM was deleted from Layer 0 entirely, because under the pure-ECAPA architecture its embeddings had <strong>zero consumers</strong>.</li>
+<li><strong>Probability-style scoring was rejected</strong> after a concrete near-miss: early drafts treated ECAPA cosine similarities as <code>P(Target)</code> with 0.85/0.65/0.30 tiers. Cosine similarities are not calibrated probabilities (§6.1); the fix was structural, not cosmetic.</li>
+</ul>
+<p>What remains is the doctrine: <strong>frozen, widely replicated encoders, surrounded by deterministic arithmetic</strong> — cosines, medians, quantiles, duration-weighted means — <strong>and explicit, logged decision rules.</strong> Nothing learns at runtime. Every number an auditor encounters is reproducible from the inputs with a pocket calculator and patience.</p>
+<h2 id="14-execution-environment-and-session-topology">1.4 Execution environment and session topology</h2>
+<p><strong>Production hardware (fixed):</strong> NVIDIA RTX 6000 Ada (48 GB VRAM) · 44 cores / 88 threads · 512 GB DDR5 · 2 TB NVMe · Ubuntu 22.04 LTS · Python 3.10.x · CUDA 12.1 · PyTorch-only stack (sole sanctioned exception: InsightFace's internal ONNXRuntime, §2.6).</p>
+<p><strong>Resident Model Policy.</strong> All five models — Silero VAD (CPU), ECAPA-TDNN, YOLOv8m, InsightFace <code>buffalo_l</code>, PyAnnote segmentation-3.0 OVD — are loaded <strong>once</strong> at batch start by the environment gate and held resident for the entire batch. There is no <code>torch.cuda.empty_cache()</code> anywhere in the codebase, and no load/unload state machine between files; combined footprint is far under the 48 GB available, and unload/reload cycles are both wasted time and a reproducibility risk surface.</p>
+<p><strong>Memory policy.</strong> The entire batch's 16 kHz PCM (~1–2 GB for 15 files) is preloaded into RAM as raw <code>bytes</code> buffers at Layer 0 (§4.5). Every later layer slices these buffers; no audio is re-read from disk mid-pipeline.</p>
+<p><strong>Parallelism with determinism guardrails.</strong> FFmpeg extraction fans out across CPU threads (§4.5). Layer 1 is <strong>strictly sequential in canonical file order</strong> — the cumulative enrollment pool is order-dependent <em>by design</em> (§5.10). Layers 2 and 3 are written through per-file <code>WorkerLog</code>s merged under the Canonical Manifest Merge Rule (§3.6), so their records are byte-identical regardless of scheduling, even though current code runs the GPU stages sequentially (a shared resident model is not provably race-free across threads, and at 2–3 inference batches per file fan-out buys nothing).</p>
+<p><strong>Session topology guarantee.</strong> A batch <em>is</em> a session. Per-batch threshold calibration (§6.2) is therefore per-session by construction; no session-grouping machinery exists because none is needed. Cross-video drift detection (§6.7) is informational only — same microphone, same room, drift is expected to be minimal.</p>
+<h2 id="15-module-map">1.5 Module map</h2>
+<pre class="hljs"><code><div>session_manifest  ◄──  environment_gate  ◄──  layer0_preprocessor  ◄──  layer1_enrollment  ◄──  layer2_tracker  ◄──  layer3_contamination  ◄──  pipeline_runner
+(0a, stdlib only)      (0b)                   (1)                       (2, package)            (3)                  (4)                       (5)
+</div></code></pre>
+<p>Arrows point from importer to imported. The graph is strictly acyclic; no module imports a later one (Implementation Rule 3). Every module from 0b onward begins with <code>import environment_gate</code> as its <strong>first</strong> import, because that import fixes the process environment (§2.2) before anything else can observe it. Every module ships a stdlib-only self-test runnable on a bare Python 3.10 with zero installed packages — the seams that make that possible are part of the architecture, not test scaffolding (§8.4).</p>
+<hr>
+<h1 id="part-ii--the-determinism-substrate-environment_gatepy">Part II — The Determinism Substrate (<code>environment_gate.py</code>)</h1>
+<h2 id="21-why-the-standard-is-bit-identity">2.1 Why the standard is bit-identity</h2>
+<p>Every decision payload in the manifest is hashed (<code>payload_sha256</code>), every layer output document is hashed, every emitted WAV is hashed. A single float that differs in its last mantissa bit anywhere in the decision path changes a hash and breaks the audit equality. So the engineering target is not &quot;numerically stable&quot; but <strong>bit-identical</strong>: the run must be a pure function from (input files, model store, parameters) to bytes. Everything in this part exists to make GPU inference — normally the least reproducible component in an ML system — satisfy that.</p>
+<h2 id="22-the-four-cuda-determinism-constants-mechanism-by-mechanism">2.2 The four CUDA determinism constants, mechanism by mechanism</h2>
+<p>Applied by the gate; constants #2–#4 inside <code>enforce_torch_determinism()</code>, #1 at <strong>module import time</strong>, before any CUDA context can exist:</p>
+<ol>
+<li><strong><code>os.environ[&quot;CUBLAS_WORKSPACE_CONFIG&quot;] = &quot;:4096:8&quot;</code></strong> — cuBLAS chooses GEMM reduction strategies (e.g., split-K) partly based on available workspace; different strategies sum partial products in different orders, and floating-point addition is not associative. Fixing the workspace configuration pins the strategy and therefore the summation order. It must be set before the CUDA context is created, which is why <code>environment_gate</code> sets it in module-level code and why every entrypoint imports the gate first.</li>
+<li><strong><code>torch.use_deterministic_algorithms(True)</code></strong> — forces PyTorch to select deterministic kernel implementations and to <em>raise</em> on operations that have no deterministic implementation, rather than silently varying (e.g., atomics-based scatter kernels).</li>
+<li><strong><code>torch.backends.cudnn.deterministic = True</code></strong> — restricts cuDNN to deterministic convolution algorithms (excludes the atomic-add-based backward paths, irrelevant here since the pipeline is inference-only, and certain non-deterministic forward algorithms).</li>
+<li><strong><code>torch.backends.cudnn.benchmark = False</code></strong> — disables cuDNN autotuning. The autotuner times candidate algorithms <em>at runtime</em> and picks the fastest; the winner depends on transient machine state, so two identical runs could execute different algorithms with different rounding behavior. Off means the algorithm choice is a pure function of the operation shape.</li>
+</ol>
+<p>Supporting policies set in the same function: <code>torch.set_num_threads(8)</code> (<code>TORCH_NUM_THREADS</code> — CPU-side op partitioning affects reduction order too), <code>torch.manual_seed(20260611)</code> (<code>GLOBAL_SEED</code> — defense-in-depth; nothing in the pipeline samples at runtime, but a forgotten dropout or augmentation path would at least be <em>reproducibly</em> wrong), float32 precision throughout (no AMP, no TF32 paths in use), and <code>torch.no_grad()</code> around every forward pass in every module.</p>
+<p>The same import-time block sets <strong><code>HF_HUB_OFFLINE=1</code></strong> and <strong><code>TRANSFORMERS_OFFLINE=1</code></strong> — the air-gap switches must exist before any HuggingFace-aware library is imported, for the same ordering reason as the cuBLAS variable.</p>
+<h2 id="23-fixed-batch-shapes-and-floating-point-reduction-order">2.3 Fixed batch shapes and floating-point reduction order</h2>
+<p>Because FP addition is non-associative, <strong>the batch shape is part of the numeric function</strong>: pooling statistics, batch-norm-free or not, the kernel tiling over a <code>[256, T]</code> tensor differs from a <code>[200, T]</code> tensor. SPOVNOB therefore treats inference batch sizes as <em>architectural constants</em>, recorded in the manifest at gate time:</p>
+<ul>
+<li><strong><code>ECAPA_BATCH_WINDOWS = 256</code></strong> — Layer 2's sliding-window scorer (§6.3) groups window spans by length (uniform tensor shapes per forward pass), iterates groups in ascending length order, and slices each group into batches of exactly 256. When a length group spans more than one batch, the final partial batch is padded <strong>by repeating the last window's tensor</strong> until the batch is full; padded rows' outputs are discarded by index bookkeeping. Repeat-padding (rather than zero-padding) keeps the pad rows in-distribution and, more importantly, keeps every forward pass in the dominant scan at the identical <code>[256, T]</code> shape. One honest nuance: a length group with ≤256 spans total runs as a single batch at its natural size (<code>if pad and len(indices) &gt; batch_size</code>). The shape is still a pure function of the input — same input, same shapes, same bits — so reproducibility holds; the constant's job is to make the <em>long</em> coarse scans shape-invariant, and it does.</li>
+<li><strong><code>VISUAL_BATCH_FRAMES = 32</code></strong> — Layer 1's YOLO person gate consumes frames in fixed batches of 32 (§5.3).</li>
+<li>Layer 1 enrollment windows are deliberately encoded <strong>batch-of-1</strong> (<code>ecapa_encode_pcm</code>): they are variable-length by design (&quot;no arbitrary truncation&quot;), so a fixed multi-window batch shape is impossible; batch-of-1 <em>is</em> the fixed shape.</li>
+</ul>
+<h2 id="24-order-independent-cpu-arithmetic">2.4 Order-independent CPU arithmetic</h2>
+<p>The CPU side gets the same treatment as the GPU side:</p>
+<ul>
+<li><strong><code>math.fsum</code></strong> is used for every reduction that matters — pool means, duration-weighted means, variances, MAR vertical averages, dot products and norms in <code>cosine()</code>. <code>fsum</code> computes the correctly rounded exact sum of its inputs (Shewchuk's algorithm), so the result is independent of summation order by construction. A plain <code>sum()</code> over floats would make pool arithmetic dependent on list order.</li>
+<li><strong><code>statistics.median</code></strong> aggregates overlapping window scores per block (§6.4). Its tie rule is fixed and documented: even-count inputs return the arithmetic mean of the two middle order statistics.</li>
+<li><strong><code>decimal.Decimal</code> with <code>ROUND_HALF_EVEN</code></strong> converts every ffprobe decimal-seconds string to integer milliseconds (§4.2).</li>
+<li><strong>Integer milliseconds everywhere</strong> (manifest Rule 6, §3.4). At 16 kHz, 1 ms is exactly 16 samples, so <code>ms × 16</code> is exact integer arithmetic in both directions; <code>ms_from_samples</code> floors (<code>samples * 1000 // 16000</code>).</li>
+</ul>
+<h2 id="25-the-10-second-gpu-workload-checksum">2.5 The ~10-second GPU workload checksum</h2>
+<p><code>gpu_determinism_selftest()</code> is the startup proof that the determinism constants are actually in force on <em>this</em> machine, <em>this</em> driver, <em>now</em> — not a configuration assertion but a measurement:</p>
+<pre class="hljs"><code><div>generator = torch.Generator(device=<span class="hljs-string">&quot;cuda&quot;</span>).manual_seed(<span class="hljs-number">20260611</span>)
+x = randn(<span class="hljs-number">2048</span>, <span class="hljs-number">2048</span>); w = randn(<span class="hljs-number">2048</span>, <span class="hljs-number">2048</span>)        <span class="hljs-comment"># float32, seeded</span>
+kernel = randn(<span class="hljs-number">8</span>, <span class="hljs-number">1</span>, <span class="hljs-number">7</span>, <span class="hljs-number">7</span>)
+<span class="hljs-keyword">for</span> _ <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(<span class="hljs-number">200</span>):
+    x = torch.tanh(x @ w) * <span class="hljs-number">0.5</span>                     <span class="hljs-comment"># cuBLAS GEMM chain</span>
+feature_map = conv2d(x.view(<span class="hljs-number">1</span>, <span class="hljs-number">1</span>, <span class="hljs-number">2048</span>, <span class="hljs-number">2048</span>), kernel, padding=<span class="hljs-number">3</span>)   <span class="hljs-comment"># cuDNN</span>
+payload = first <span class="hljs-number">65</span>,<span class="hljs-number">536</span> elements of x  +  first <span class="hljs-number">65</span>,<span class="hljs-number">536</span> of feature_map
+<span class="hljs-keyword">return</span> sha256(payload)
+</div></code></pre>
+<p>The workload runs <strong>twice from scratch</strong>; the two SHA-256s must match exactly or the gate halts (<code>gpu_determinism_failure</code>). Design notes: the 200-iteration GEMM chain amplifies any reduction-order divergence exponentially (a single differing bit in iteration 1 avalanches), <code>tanh(·)·0.5</code> keeps values bounded so the chain cannot saturate to ±∞ and mask divergence, and the conv2d exercises the cuDNN algorithm-selection path that constants #3/#4 govern. The passing hash is recorded in the manifest (<code>gpu_workload_checksum</code>), which converts an <em>intra-machine</em> proof into an <em>inter-machine</em> check: identical hardware/driver/stack claims between an original run and an audit replay become verifiable by comparing recorded workload hashes. What the checksum cannot prove: that a <em>different</em> GPU architecture would produce the same bits — deterministic-per-machine is the guarantee; cross-architecture identity is checked, not assumed, via the recorded hash.</p>
+<h2 id="26-the-gate-sequence-and-the-model-vendoring-mandate">2.6 The gate sequence and the Model Vendoring Mandate</h2>
+<p><code>run_gate()</code> executes, in order, halting (with a <code>blocking_halt</code> manifest entry written <em>first</em>) on any failure:</p>
+<table>
+<thead>
+<tr>
+<th>Step</th>
+<th>Check</th>
+<th>Halts on</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td><code>check_runtime_platform</code></td>
+<td>non-Linux OS; Python not 3.10.x; any of the three import-time env vars drifted</td>
+</tr>
+<tr>
+<td>2</td>
+<td><code>check_ffmpeg</code></td>
+<td>ffmpeg or ffprobe missing/unusable on PATH (Layers 0–1 shell out to both; gated so the failure cannot surface mid-batch unrecorded)</td>
+</tr>
+<tr>
+<td>3</td>
+<td><code>check_versions</code></td>
+<td>any of the 23 pinned packages (Appendix C) not installed at its exact pin</td>
+</tr>
+<tr>
+<td>4</td>
+<td><code>check_forbidden_imports</code></td>
+<td><code>pyannote.audio.pipelines.speaker_verification</code> present in <code>sys.modules</code></td>
+</tr>
+<tr>
+<td>5</td>
+<td><code>verify_model_store</code></td>
+<td>any weight file missing, unexpected, or hash-mismatched</td>
+</tr>
+<tr>
+<td>6</td>
+<td><code>enforce_torch_determinism</code></td>
+<td>CUDA version ≠ 12.1; CUDA unavailable</td>
+</tr>
+<tr>
+<td>7</td>
+<td><code>check_onnxruntime_cuda</code></td>
+<td><code>CUDAExecutionProvider</code> not in available providers</td>
+</tr>
+<tr>
+<td>8</td>
+<td><code>gpu_determinism_selftest</code></td>
+<td>the two workload hashes differ</td>
+</tr>
+<tr>
+<td>9</td>
+<td><code>load_resident_models</code></td>
+<td>any loader failure</td>
+</tr>
+</tbody>
+</table>
+<p>Three of these encode lessons already validated in practice:</p>
+<ul>
+<li><strong>Step 4 (FLAG 1).</strong> PyAnnote's SpeechBrain speaker-verification wrapper imports the <code>speechbrain.pretrained</code> module that SpeechBrain 1.x removed (pyannote issues #1661/#1677). SPOVNOB never uses that code path — Layer 3 uses <code>OverlappedSpeechDetection</code> only — so the broken import is guarded by policy rather than papered over by upgrading into an unpinned dependency set. Scope, stated precisely: the check runs <em>before</em> the resident loader, and pyannote's own package <code>__init__</code> later pulls the module into <code>sys.modules</code> transitively (wrapped in pyannote's optional-backend <code>try/except</code>, never instantiated by SPOVNOB) — so post-load presence is expected, and what the gate actually enforces is the realistic violation vector: a <em>direct</em> import by SPOVNOB code.</li>
+<li><strong>Step 7 (FLAG 2).</strong> <code>onnxruntime-gpu==1.17.1</code> exists under the <em>same version number</em> on the default PyPI index built for CUDA 11.8 and on the Microsoft CUDA-12 feed built for CUDA 12.x. On this CUDA 12.1 box, the wrong wheel doesn't crash — InsightFace <strong>silently falls back to CPU</strong>, changing both performance and, potentially, numerics. The gate refuses to start unless the CUDA provider is actually live. This exact failure was reproduced during the WSL2 dry run (<code>Ubuntu_Setup_Gotchas.md</code> §2: <code>libcublasLt.so.11 not found</code> → CPU fallback), which is the strongest possible argument for the gate's existence. The related runtime prerequisite — PyTorch <code>+cu121</code> wheels bundle their own cuDNN/cuBLAS inside the <code>torch</code> package, and ONNXRuntime needs them on <code>LD_LIBRARY_PATH</code> — is a deployment step (Gotchas §1), and the gate is what catches it when forgotten.</li>
+<li><strong>Steps 5 &amp; 9 (Model Vendoring Mandate).</strong> On the staging box, <code>freeze_model_hashes()</code> runs <strong>once</strong>: it refuses to freeze if any of the five model directories is missing or empty, hashes every regular file under the store (sorted walk; the registry file itself excluded), writes <code>expected_hashes.json</code> as canonical JSON, and <code>chmod 444</code>s it — re-freezing requires a deliberate manual delete (Gotchas §4; intentional friction). On the air-gapped box, <code>verify_model_store()</code> re-hashes everything and computes a three-way set difference: <code>missing</code>, <code>unexpected</code>, <code>mismatched</code>. <strong><code>unexpected</code> is load-bearing</strong>: a smuggled extra file inside a model directory halts the gate even though no expected file changed — the store's contents are closed-world. Every verified file gets its own <code>model_checksum</code> manifest entry. Loading is local-only by construction: Silero via <code>torch.jit.load</code> of the vendored snapshot (commit-pinned to <code>915dd3d639b8333a52e001af095f87c5b7f1e0ac</code> — pinned to a commit, not a tag, because the upstream <code>v4.0</code> tag was observed to move); ECAPA via <code>EncoderClassifier.from_hparams(source=&lt;store dir&gt;, savedir=&lt;same dir&gt;)</code>; YOLO from the local <code>yolov8m.pt</code>; InsightFace with <code>root=&lt;store&gt;</code> and <code>providers=[&quot;CUDAExecutionProvider&quot;]</code> only; PyAnnote <code>Model.from_pretrained(&lt;local pytorch_model.bin&gt;)</code> wrapped in <code>OverlappedSpeechDetection</code> and instantiated with the pinned hyperparameters <code>{&quot;min_duration_on&quot;: 0.0, &quot;min_duration_off&quot;: 0.0}</code> (§7.2). One open hardening item from the dry run — SpeechBrain's loader can fall back to the global HuggingFace cache for auxiliary files (e.g., <code>label_encoder.txt</code>) if the vendored directory is incomplete, and that cache is <em>outside</em> the hash registry's coverage — is recorded in Part IX.</li>
+</ul>
+<h2 id="27-the-time-doctrine-three-coordinate-frames">2.7 The time doctrine: three coordinate frames</h2>
+<p>All timing in SPOVNOB lives in one of exactly three integer-millisecond frames, and every conversion site is fixed:</p>
+<table>
+<thead>
+<tr>
+<th>Frame</th>
+<th>Zero point</th>
+<th>Conversion</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Data-relative ms</strong></td>
+<td>first audio sample of one file's extraction</td>
+<td>—</td>
+</tr>
+<tr>
+<td><strong>Local PTS ms</strong></td>
+<td>the file's container clock</td>
+<td><code>local = data_relative + audio_start_pts_ms</code></td>
+</tr>
+<tr>
+<td><strong>Global session ms</strong></td>
+<td>start of the batch timeline</td>
+<td><code>global = local + file_offset_ms</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>audio_start_pts_ms</code> is the audio stream's <code>start_time</code> as reported by ffprobe (§4.1) — containers routinely start audio at a small nonzero PTS (e.g., 23 ms), and ignoring it would shift every downstream timestamp. <code>file_offset_ms</code> is the cumulative duration of all preceding files in canonical order (§4.3). Layer 1 operates in local PTS (its PCM slicer subtracts <code>audio_start_pts_ms</code> to reach samples). Layer 2 plans and scores windows in data-relative ms (its scorer slices with start offset 0), then logs and emits local and global. Layer 3's overlap regions are produced in local PTS (the provider adds <code>audio_start_pts_ms</code>, §7.2). Rule 6 (§3.4) enforces integerness at every manifest boundary, so a float can never leak into the timeline through any payload.</p>
+<hr>
+<h1 id="part-iii--the-session-manifest-chain-of-custody-as-a-data-structure-session_manifestpy">Part III — The Session Manifest: Chain of Custody as a Data Structure (<code>session_manifest.py</code>)</h1>
+<h2 id="31-entry-anatomy-and-the-payloadaudit-split">3.1 Entry anatomy and the payload/audit split</h2>
+<p>The manifest is a single append-only JSON Lines file. Each line:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;schema&quot;</span><span class="hljs-punctuation">:</span>         <span class="hljs-string">&quot;spovnob-manifest-v1&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;seq&quot;</span><span class="hljs-punctuation">:</span>            <span class="hljs-number">17</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;operation&quot;</span><span class="hljs-punctuation">:</span>      <span class="hljs-string">&quot;calibration&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;payload&quot;</span><span class="hljs-punctuation">:</span>        <span class="hljs-punctuation">{</span> <span class="hljs-string">&quot;...deterministic content only...&quot;</span> <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;payload_sha256&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;sha256 of canonical-JSON payload&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;prev_sha256&quot;</span><span class="hljs-punctuation">:</span>    <span class="hljs-string">&quot;entry_sha256 of the previous line (or 64 zeros, GENESIS)&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;audit&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">&quot;timestamp_utc&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-06-12T03:41:07.221Z&quot;</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;operator_id&quot;</span><span class="hljs-punctuation">:</span>   <span class="hljs-string">&quot;operator-7&quot;</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;stated_reason&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">null</span></span>
+  <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;entry_sha256&quot;</span><span class="hljs-punctuation">:</span>   <span class="hljs-string">&quot;sha256 of this entry minus this field&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>The decisive design choice is the <strong>payload/audit split</strong>. Payloads contain <em>only</em> deterministic content — no wall-clock time, no hostnames, no operator identity — so <code>payload_sha256</code> is <strong>bit-reproducible across re-runs</strong>: an auditor replaying the batch months later produces the <em>same payload hash stream</em>. Wall-clock time and operator identity live exclusively in the <code>audit</code> block, which exists for custody (when, who, why), not for reproduction. <code>entry_sha256</code> seals the <em>whole</em> entry including the audit block and the chain link, so the chain hashes are run-specific while the payload hashes are the cross-run comparable quantity. This is exactly the right factoring: <em>what happened</em> is reproducible; <em>when and by whom</em> is tamper-evident.</p>
+<h2 id="32-canonical-json">3.2 Canonical JSON</h2>
+<p>One serializer (<code>canonical_json</code>) is used for every hash input and every line written, with four locked flags, each load-bearing:</p>
+<pre class="hljs"><code><div>json.dumps(obj, sort_keys=<span class="hljs-literal">True</span>, separators=(<span class="hljs-string">&quot;,&quot;</span>, <span class="hljs-string">&quot;:&quot;</span>), ensure_ascii=<span class="hljs-literal">True</span>, allow_nan=<span class="hljs-literal">False</span>)
+</div></code></pre>
+<p><code>sort_keys</code> removes dict-insertion-order variance; fixed <code>separators</code> remove whitespace variance; <code>ensure_ascii</code> removes encoding variance (the byte stream is pure ASCII regardless of platform defaults); <code>allow_nan=False</code> makes float NaN/Inf unserializable — which means the <em>concept</em> &quot;NaN block&quot; in Layer 3 is, by necessity and by design, the <strong>string designation</strong> <code>&quot;NaN&quot;</code>, never an IEEE NaN (an IEEE NaN also breaks equality and hashing, so the serializer refusing it is defense-in-depth).</p>
+<h2 id="33-the-hash-chain-verification-and-what-tampering-looks-like">3.3 The hash chain, verification, and what tampering looks like</h2>
+<p>Each entry carries <code>prev_sha256</code> — the previous entry's seal — forming a chain from <code>GENESIS</code> (64 zeros). <code>SessionManifest.verify_chain(path)</code> is the auditor's entry point; for every line it re-derives and checks four things: (1) <code>entry_sha256</code> equals the hash of the entry minus that field; (2) <code>payload_sha256</code> equals the hash of the payload; (3) <code>prev_sha256</code> equals the previous entry's seal; (4) <code>seq</code> equals the line's position (0-based, dense). First inconsistency raises <code>ManifestChainError</code> with the line number.</p>
+<table>
+<thead>
+<tr>
+<th>Tampering</th>
+<th>Detected by</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Edit any byte of any payload</td>
+<td>checks 1 and 2 on that line</td>
+</tr>
+<tr>
+<td>Edit the audit block (backdate a timestamp)</td>
+<td>check 1 on that line</td>
+</tr>
+<tr>
+<td>Delete a line</td>
+<td>check 3 on the next line (and check 4 thereafter)</td>
+</tr>
+<tr>
+<td>Reorder lines</td>
+<td>checks 3 and 4</td>
+</tr>
+<tr>
+<td>Insert a forged line</td>
+<td>check 3 on the following original line</td>
+</tr>
+<tr>
+<td><strong>Truncate the tail</strong></td>
+<td><em>not</em> detectable by the chain alone — a valid prefix is a valid chain. Mitigations: the runner's terminal <code>pipeline_complete</code> entry is the designated last operation (§8.1), the runner re-verifies and records the entry count after close, and the recommended practice (Part IX) is to retain the final <code>entry_sha256</code> off-box, which converts truncation and full-rewrite attacks into detectable ones.</td>
+</tr>
+</tbody>
+</table>
+<p>Append-only is enforced three independent ways: the file handle is opened in append mode (never truncated); an exclusive <strong><code>fcntl</code> advisory lock</strong> (<code>LOCK_EX | LOCK_NB</code>) makes a second concurrent writer fail fast with <code>ManifestLockError</code> (single-writer rule); and the chain makes any retroactive modification detectable. Every <code>append()</code> ends with <code>flush()</code> + <code>os.fsync()</code> before returning. On reopen, the constructor (default <code>verify_on_open=True</code>) re-verifies the entire existing chain before resuming the sequence — a crashed run cannot be silently continued atop a corrupted log.</p>
+<h2 id="34-rule-6-validate_time_fields">3.4 Rule 6: <code>validate_time_fields</code></h2>
+<p>Every key ending in <code>_ms</code>, at any nesting depth in any payload (the validator recurses through dicts, lists, and tuples), must hold a Python <code>int</code>. Two subtleties:</p>
+<ul>
+<li><strong><code>bool</code> is rejected explicitly</strong> (<code>isinstance(value, bool) or not isinstance(value, int)</code>) because <code>bool</code> subclasses <code>int</code> in Python — without the explicit check, <code>&quot;start_ms&quot;: True</code> would validate.</li>
+<li>The rule is <strong>suffix-driven, so payload shape matters</strong>. Case study, fixed in commit <code>7dc3daa</code>: Layer 0's payload originally placed a list of <code>[start, end]</code> pairs under <code>&quot;silero_segments_local_ms&quot;</code> — a list is not an <code>int</code>, so the first real batch would have died with <code>ManifestTimeError</code> at the first Layer 0 write (the zero-pip self-tests couldn't reach that code path because it needs ffmpeg and Silero). The shipped fix does not rename the key to dodge the suffix; it restructures the data so the rule <em>actively covers it</em>: <code>&quot;silero_segments&quot;: [{&quot;start_ms&quot;: s, &quot;end_ms&quot;: e}, ...]</code> — the validator recurses into each dict and enforces integerness on every boundary. The payload construction was extracted into the pure <code>layer0_file_payload()</code> so the self-test validates the exact dict production writes, plus a negative case asserting that corrupting one boundary to a float raises. The general lesson is itself doctrine: when a validation rule and a data shape collide, reshape the data <em>into</em> the rule's coverage, never around it.</li>
+</ul>
+<h2 id="35-rule-7-the-write-before-destruction-guarantee">3.5 Rule 7: the write-before-destruction guarantee</h2>
+<p><code>guard_destructive(action, payload, ...)</code> appends a <code>destructive_op</code> entry and — like every append — returns only after the bytes are fsync'd. <strong>Returning from the call is the guarantee</strong>: the caller proceeds with the irreversible action only once its record is durable. If the process dies mid-action, the manifest already says what was about to happen and why. The inverse ordering (act, then log) is how chain-of-custody gaps are born.</p>
+<h2 id="36-worker-logs-and-the-canonical-manifest-merge-rule">3.6 Worker logs and the Canonical Manifest Merge Rule</h2>
+<p>Parallel (or parallelizable) stages never write the main manifest directly. Each per-file worker writes a <code>WorkerLog</code> — plain JSONL, <em>not</em> hash-chained (it is an intermediate artifact), each record carrying its canonical sort fields:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span><span class="hljs-attr">&quot;file_index&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">3</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">&quot;start_ms&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">127000</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">&quot;operation&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;layer2_block&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">&quot;payload&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>...<span class="hljs-punctuation">}</span><span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p><code>start_ms = -1</code> marks file-level records (e.g., activity-ratio summaries), which deliberately sort before all timed records of their file. <code>merge_worker_logs()</code> then reads every record from every log and sorts by the four-tuple</p>
+<pre class="hljs"><code><div>(file_index, start_ms, operation, sha256(canonical_json(payload)))
+</div></code></pre>
+<p>— a <strong>deterministic total order independent of worker count, scheduling, and arrival time</strong> (the payload hash as final tiebreaker makes the order well-defined even for records identical in the first three fields). The single manifest writer appends the sorted records, then a <code>worker_log_merged</code> summary entry carrying each source log's file SHA-256 and record count — so the intermediate artifacts are integrity-pinned even though they aren't chained. Consequence, verified in the module self-test: two workers finishing in any order produce a byte-identical payload stream in the merged manifest. This is the mechanism that lets the architecture <em>permit</em> Layer 2/3 fan-out without ever letting scheduling reach the evidence.</p>
+<hr>
+<h1 id="part-iv--layer-0-pts-true-extraction-and-the-speech-map-layer0_preprocessorpy">Part IV — Layer 0: PTS-True Extraction and the Speech Map (<code>layer0_preprocessor.py</code>)</h1>
+<h2 id="41-extraction-and-probing">4.1 Extraction and probing</h2>
+<p>Per file, two subprocess calls with fully explicit, auditable argument lists:</p>
+<pre class="hljs"><code><div>ffprobe -v error -print_format json -show_streams -show_format &lt;source&gt;
+ffmpeg  -hide_banner -nostdin -y -i &lt;source&gt; -vn -map 0:a:0
+        -acodec pcm_s16le -ar 16000 -ac 1 -f wav &lt;dest.wav&gt;
+</div></code></pre>
+<p><code>-map 0:a:0</code> selects the <strong>first audio stream deterministically</strong> (no ffmpeg default-stream heuristics); <code>-vn</code> means no video decode; <code>pcm_s16le/16000/1</code> is the pipeline-wide sample contract, validated again on read-back by the stdlib <code>wave</code> reader (mono, 16-bit, 16 kHz, or <code>Layer0Error</code>). <code>parse_probe()</code> extracts the PTS-relevant facts as a pure function (testable without the binary):</p>
+<ul>
+<li><strong><code>audio_start_pts_ms</code></strong>: the audio stream's <code>start_time</code>, converted by the half-even rule (§4.2). Missing or <code>&quot;N/A&quot;</code> → <code>0</code> <strong>plus <code>audio_start_missing=True</code></strong> — recorded, never guessed; the flag travels into the manifest payload.</li>
+<li><strong><code>vfr_suspected</code></strong>: ffprobe's <code>avg_frame_rate</code> and <code>r_frame_rate</code> are parsed as exact <code>Fraction</code>s and compared (<code>&quot;30000/1001&quot;</code> parses exactly; string comparison would false-positive on equivalent spellings, float comparison on precision). Inequality of the two — average achieved rate vs. base rate — is the standard VFR fingerprint. The flag is <em>diagnostic</em> (it matters to the visual layer's frame pairing, §5.3); audio processing is index-free by construction, so VFR cannot corrupt the audio timeline regardless.</li>
+</ul>
+<h2 id="42-the-rounding-rule">4.2 The rounding rule</h2>
+<p>Every ffprobe decimal-seconds string becomes integer milliseconds via <code>Decimal(value) * 1000</code>, quantized with <strong><code>ROUND_HALF_EVEN</code></strong> (banker's rounding). Two reasons: the value is parsed <em>as a string</em> into <code>Decimal</code>, so <code>&quot;0.023220&quot;</code> is represented exactly rather than passing through binary float re-rounding; and half-even is bias-free under accumulation — over thousands of packet timestamps, half-up rounding adds a systematic +0.5 ms drift expectation to ties, half-even cancels it. From the self-test, the rule in action: <code>&quot;2.0005&quot; → 2000</code>, <code>&quot;2.0015&quot; → 2002</code> (both ties round to the even millisecond).</p>
+<h2 id="43-the-global-session-clock">4.3 The global session clock</h2>
+<p>Canonical file order is the <strong>lexicographic sort of full source paths</strong> — recorded in the <code>batch_init</code> entry, along with the ffmpeg version string, every Silero parameter, and each source file's SHA-256. <code>file_offset_ms</code> accumulates: file <em>k</em>'s offset is the sum of durations of files 0..k−1. A <code>video_gap</code> manifest entry is written at each file boundary after the first (&quot;new file boundary within continuous session&quot;) — the audit trail's explicit acknowledgment that the session timeline crosses a file seam there. The conversion helpers live on <code>FileAudio</code>: <code>to_global_ms(local) = file_offset_ms + local</code>, and <code>sample_to_local_pts_ms(i) = audio_start_pts_ms + ms_from_samples(i)</code>.</p>
+<h2 id="44-silero-vad-the-non-destructive-speech-map">4.4 Silero VAD: the non-destructive speech map</h2>
+<p>Silero (CPU-resident TorchScript, ~1 MB, zero VRAM) is run sequentially per file: <code>reset_states()</code> (stateful model — per-file reset is itself a determinism requirement), then 512-sample windows (= exactly 32 ms at 16 kHz) in order, producing one speech probability per window. The final partial window is zero-padded <strong>for inference only</strong> — the stored buffer is never modified. That sentence is the whole doctrine in miniature: <strong>Silero never touches the audio.</strong> Hard-zeroing non-speech (an earlier design's mistake, fixed in Rev 2 of the master spec) creates artificial amplitude cliffs that corrupt downstream acoustic processing; SPOVNOB's VAD output is <em>a map</em>, not a mask.</p>
+<p><code>segments_from_window_probs()</code> converts probabilities to integer-ms segments in a <strong>fixed four-step order</strong>:</p>
+<pre class="hljs"><code><div>1. threshold:   window is speech iff prob &gt;= 0.50          (SILERO_THRESHOLD)
+2. merge:       join speech runs separated by silence &lt; 100 ms
+3. drop:        discard runs shorter than 250 ms  — measured BEFORE padding
+4. pad:         widen each survivor by 30 ms per side, clamped to
+                [0, audio_end]; re-merge any overlaps padding creates
+</div></code></pre>
+<p>The order is load-bearing: pad-before-drop would promote sub-250 ms blips over the survival threshold by inflation. Worked example (from the self-test, 32 ms windows): 8 speech windows, 4 silence, 8 speech → runs <code>0–256 ms</code> and <code>384–640 ms</code>; the 128 ms gap survives step 2 (≥100 ms); both runs survive step 3; padding yields <code>(0, 286)</code> and <code>(354, 640)</code> (start clamped at 0, end clamped at the 640 ms audio end). The caller adds <code>audio_start_pts_ms</code> to every pair, so <code>FileAudio.silero_segments_local_ms</code> is in local PTS. These segments gate Layer 1's window starts and Gate A coverage, Layer 2's skip rule, and the activity-ratio denominator — one map, four consumers, zero modifications.</p>
+<h2 id="45-batch-assembly">4.5 Batch assembly</h2>
+<p><code>preprocess_batch()</code>: canonical sort → missing-file check (blocking halt listing the absent paths) → source hashing → <code>batch_init</code> entry → <strong>parallel</strong> ffmpeg extraction across <code>EXTRACT_WORKERS = 8</code> threads → <strong>sequential</strong> (canonical-order) per-file Silero inference and manifest writes. The split is the parallelism doctrine applied: the expensive, side-effect-free stage fans out; everything that writes the record runs in canonical order, so the manifest's payload content is identical no matter how the extraction pool was scheduled. Each file ends as a <code>FileAudio</code>: index, paths, source/WAV SHA-256s, sample count, <code>duration_ms</code>, <code>audio_start_pts_ms</code> (+ missing flag), <code>vfr_suspected</code>, <code>file_offset_ms</code>, the in-RAM <code>pcm</code> bytes, and the Silero map — followed by its <code>layer0_file</code> payload (the Rule-6-validated nested-segment shape of §3.4, including <code>silero_total_speech_ms</code>).</p>
+<hr>
+<h1 id="part-v--layer-1-visual-anchored-enrollment-layer1_enrollment">Part V — Layer 1: Visual-Anchored Enrollment (<code>layer1_enrollment/</code>)</h1>
+<h2 id="51-the-philosophy-replace-identity-inference-with-identity-witness">5.1 The philosophy: replace identity inference with identity witness</h2>
+<p>The hard problem in diarization is not &quot;where is speech&quot; but &quot;<em>whose</em> speech.&quot; Statistical systems answer it by clustering and post-hoc assignment — inference an auditor can only take on faith. SPOVNOB answers it with a witnessed anchor: the operator clicks the target <em>while watching them speak</em>; the clicked face becomes a biometric lock (<code>F_target</code>, ArcFace embedding); and from then on, <strong>audio enters the enrollment pool only when the locked face is visibly producing speech</strong> at the same PTS, with the audio side corroborated by VAD. Everything downstream — <code>E_seed</code>, <code>E_composite</code>, <code>E_anti</code> — is <strong>arithmetic over frozen encoder outputs</strong>: duration-weighted means and cosines, not training. The Zero-Training Mandate is absolute: no model weight changes anywhere, ever; &quot;enrollment&quot; is a weighted average that an auditor can recompute by hand from the persisted per-window WAVs and vectors.</p>
+<h2 id="52-operator-surface">5.2 Operator surface</h2>
+<p>The clicks file is JSON:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span><span class="hljs-attr">&quot;speaking_click&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span><span class="hljs-attr">&quot;file_index&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">&quot;pts_ms&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">41250</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">&quot;x&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">812</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">&quot;y&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">440</span><span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+ <span class="hljs-attr">&quot;anti_click&quot;</span><span class="hljs-punctuation">:</span>     <span class="hljs-punctuation">{</span><span class="hljs-attr">&quot;file_index&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">&quot;pts_ms&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">95000</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">&quot;x&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">300</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">&quot;y&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">400</span><span class="hljs-punctuation">}</span><span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p><code>anti_click</code> (Track C) is optional by design. <code>file_index</code>/<code>pts_ms</code> are integer-validated at parse; both clicks must target the <strong>first video</strong> or the run halts (<code>speaking_click_not_on_first_video</code>) — anchors propagate forward, never backward. Validation failures raise <code>Layer1ReclickError</code> <em>after</em> a <code>reclick_required</code> warning entry with the machine-readable reason — the operator feedback loop is itself part of the record. Because the pipeline is offline, the doctrine encourages the operator to pre-review the video and click inside the <strong>longest clean speaking stretch</strong> available: a 20–30 s verified seed is materially better than a minimal one, because <code>E_seed</code> is the reference for Gate B and the M-Trap (§5.7).</p>
+<h2 id="53-the-vision-stack">5.3 The vision stack</h2>
+<p>Frame timing comes from the container, never from frame counting: <code>video_frame_pts_ms()</code> reads every video packet's <code>pts_time</code> via ffprobe, converts with the half-even rule, and <strong>sorts ascending</strong> (packets arrive in decode order; presentation order is sorted PTS). OpenCV decodes sequentially in presentation order, so decoded frame <em>i</em> pairs with <code>pts[i]</code>. A count mismatch between decoded frames and listed PTS sets <code>pts_mismatch</code>, which the orchestrator escalates to a <code>frame_pts_mismatch</code> warning; pairing stops at the shorter length (review-flagged honesty: on mismatch the tail is unanalyzed rather than mis-timed).</p>
+<p>Per batch of <code>VISUAL_BATCH_FRAMES = 32</code> frames: <strong>YOLOv8m</strong> runs as a person gate (<code>classes=[0]</code>, <code>conf=0.30</code>); frames with no person detection skip InsightFace entirely (the master spec's &quot;empty frames skipped&quot;). For person-containing frames, <strong>InsightFace <code>buffalo_l</code></strong> (det size 640×640) yields faces; any face with <code>det_score &lt; 0.50</code> is treated as <strong>not detected</strong> (guardrail 5 — a low-confidence face must not be allowed to <em>fail</em> an identity check; it must simply not exist). Each surviving face carries its ArcFace embedding (<code>normed_embedding</code> preferred), its 106-landmark set → MAR (§5.4), and <code>yaw = face.pose[1]</code> when the pose attribute exists (assumption registered in Part IX). An optional silence-stride rule (analyze every Nth frame outside Silero speech ± tolerance; default stride 1 = off) is documented and input-deterministic, but unnecessary at this batch size.</p>
+<h2 id="54-mouth-aspect-ratio-geometry-smoothing-hysteresis-suspension">5.4 Mouth Aspect Ratio: geometry, smoothing, hysteresis, suspension</h2>
+<p><strong>Formula</strong> (<code>compute_mar</code>): with 2d106det landmarks, vertical gaps are the Euclidean distances between paired upper/lower inner-lip indices <code>(52,61), (53,62), (54,63)</code>; MAR = <code>fsum(gaps)/3</code> divided by the mouth width <code>d(52, 61)</code>; <code>None</code> if the landmark array is short or the width is degenerate (≤1e-6). Division by width is the normalization that makes MAR face-scale-invariant — a face twice as close to the camera doubles both numerator and denominator.</p>
+<blockquote>
+<p><strong>Registered caveat (Part IX, item 1):</strong> the width pair <code>(52, 61)</code> is the master document's verbatim value, and it <em>duplicates the first vertical pair</em> — as written, the ratio's denominator is one of its own numerator terms, which would make MAR hover near a constant. The indices are deliberately implemented as <strong>parameters</strong> (<code>EnrollmentParams</code>, manifest-logged), carrying a <code>VALIDATE-ON-BENCH</code> banner in <code>params.py</code>: confirming the true 2d106det mouth-corner indices against real model output is the first Ubuntu bench task, and correcting them is a <em>recorded parameter change</em>, not a code change.</p>
+</blockquote>
+<p><strong>Smoothing</strong>: a 5-frame causal EMA, <code>α = 2/(span+1) = 1/3</code>, update <code>v ← αx + (1−α)v</code>. The EMA is <strong>pre-seeded with the first observed value</strong> — a zero-initialized EMA needs ~4 frames to converge, and that warm-up artifact could suppress a start trigger at the head of a video (the master spec's &quot;pre-seed the EMA buffer with frame 0's MAR&quot; rule). The EMA <strong>persists across windows</strong> (it smooths a physical signal, not window state) and <strong>freezes</strong> during suspension or target absence — a stale-but-honest value beats a fabricated one.</p>
+<p><strong>Hysteresis</strong>: <code>MAR_on = 0.55</code> opens, <code>MAR_off = 0.40</code> arms the close timer. Two thresholds, not one: a single threshold turns lip-area noise at the boundary into open/close chatter; the 0.15 dead band means a state flip requires a decisive move.</p>
+<p><strong>Yaw suspension</strong>: when <code>|yaw| &gt; 35°</code>, lips project into foreshortened geometry and MAR crashes artificially; MAR checking is <strong>suspended entirely</strong> (no transitions fire, the plosive timer pauses — §5.5) rather than fed a corrupt value. Unknown yaw does <strong>not</strong> suspend; instead the orchestrator logs <code>pose_unavailable</code> once per video, so an InsightFace build without pose degrades visibly, not silently.</p>
+<h2 id="55-the-e_window-capture-state-machine-window_machinepy">5.5 The <code>E_window</code> capture state machine (<code>window_machine.py</code>)</h2>
+<p>A pure, deterministic FSM over per-frame observations (<code>FrameObs</code>: PTS, target presence/MAR/suspension, interviewer presence/MAR, VAD-near flag). States: <code>IDLE → ACTIVE → PLOSIVE_BUFFER → (ACTIVE | emit)</code>.</p>
+<table>
+<thead>
+<tr>
+<th>State</th>
+<th>Condition (exact)</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>IDLE</td>
+<td>target present ∧ ¬suspended ∧ smoothed MAR &gt; <code>MAR_on</code> ∧ Silero speech within ±50 ms of frame PTS (<code>vad_near</code>)</td>
+<td><code>T_start = pts</code>; → ACTIVE</td>
+</tr>
+<tr>
+<td>ACTIVE</td>
+<td>suspended</td>
+<td>accumulate; EMA frozen; wait for head return</td>
+</tr>
+<tr>
+<td>ACTIVE</td>
+<td>target absent <strong>or</strong> smoothed MAR &lt; <code>MAR_off</code></td>
+<td>→ PLOSIVE; <code>deadline = pts + 500 ms</code></td>
+</tr>
+<tr>
+<td>PLOSIVE</td>
+<td>suspended</td>
+<td><strong>pause the timer</strong>: <code>deadline += pts − prev_pts</code></td>
+</tr>
+<tr>
+<td>PLOSIVE</td>
+<td><code>pts ≥ deadline</code></td>
+<td>emit window with <strong><code>T_stop = deadline</code></strong> (<code>plosive_expiry</code>)</td>
+</tr>
+<tr>
+<td>PLOSIVE</td>
+<td>interviewer present ∧ interviewer EMA &gt; <code>MAR_on</code></td>
+<td>emit <strong>immediately</strong>, <code>T_stop = pts</code> (<code>interviewer_interjection</code>)</td>
+</tr>
+<tr>
+<td>PLOSIVE</td>
+<td>target present ∧ EMA &gt; <code>MAR_on</code></td>
+<td>cancel timer; → ACTIVE</td>
+</tr>
+<tr>
+<td>any open</td>
+<td>end of video</td>
+<td>emit at last frame PTS (<code>end_of_video</code>)</td>
+</tr>
+</tbody>
+</table>
+<p>Five rules deserve their &quot;why&quot;:</p>
+<ul>
+<li><strong>The plosive buffer (500 ms)</strong> exists because plosives and brief closures (/p/, /b/, swallows) close the lips mid-utterance; without the buffer, every &quot;p&quot; would split the window. 500 ms is the doc's default (tunable 300–700).</li>
+<li><strong>The Early Stop Rule</strong> is the contamination firewall at capture time: if the <em>interviewer's</em> lips open while the target's closure timer runs, the window ends <strong>now</strong> and the buffer is discarded — otherwise a rapid interviewer interjection landing inside the 500 ms grace period would be captured into enrollment audio. This is the single most important transition in the machine.</li>
+<li><strong>Clean expiry stops at the deadline PTS, not the noticing frame.</strong> Frames arrive at ~33 ms granularity; the timer may be observed expired up to a frame late. Using the observation frame's PTS would leak up to one frame of post-closure audio into every window. The deadline itself is the correct, frame-rate-independent stop.</li>
+<li><strong>Suspension pauses the timer</strong> (deadline extended by the suspended wall time): a turned head removes the <em>evidence</em> of closure, and the conservative reading is that the closure clock should not run while the evidence is absent (review-flagged decision).</li>
+<li><strong>Target absence is treated as a closure</strong> (same plosive semantics, EMA frozen): the master document does not specify the absence case; treating disappearance as the start of a possible stop is the conservative deterministic choice (review-flagged).</li>
+</ul>
+<p>The machine also accumulates per-window statistics for Gate A and the audit trace: frame count, interviewer-present and interviewer-closed frame counts (closed = interviewer EMA &lt; <code>MAR_off</code>), and the full <code>(pts, smoothed MAR | None-while-suspended)</code> trace, persisted in the window's JSON sidecar.</p>
+<h2 id="56-seed-construction-and-the-biometric-lock">5.6 Seed construction and the biometric lock</h2>
+<p>On video 1: build an observation stream anchored on the <em>clicked face's</em> embedding (nearest analyzed frame with faces within <code>CLICK_MATCH_MAX_GAP_MS = 200</code> of the click PTS; prefer a bbox containing the click point, else nearest face center), run the window machine over the whole video, and select the emitted window <strong>containing the click PTS</strong>. Then the seed guardrails, in order: no containing window → re-click (<code>click_outside_speaking_window</code>); duration &lt; <code>seed_min_ms = 3000</code> → re-click (guardrail 2; the code supersedes the legacy &quot;3–8 s&quot; wording — 3 s minimum, <strong>no maximum</strong>); fraction of seed frames where a non-target face had open lips &gt; <code>click_overlap_max_frac = 0.20</code> → re-click (guardrail 1's visual overlap proxy). The biometric lock is then <em>refined</em>: <code>F_target</code> becomes the L2-normalized mean of <strong>every</strong> matched face embedding across the seed span — a multi-frame lock is robust to the single-frame pose/blur/expression lottery that a click-frame-only anchor would inherit. The seed window is encoded (§5.9's single-pass rule), pooled with <code>operator_verified=true</code>, and recorded (<code>layer1_seed</code> entry with the vector hash).</p>
+<h2 id="57-track-b-automatic-anti-profile-collection-and-the-m-trap">5.7 Track B: automatic anti-profile collection, and the M-Trap</h2>
+<p><code>E_anti</code> — the interviewer's profile — powers Gate C and Layer 2's dual-target margin. Track B collects it automatically: a frame is a <strong>candidate center</strong> when a non-target face is present with <strong>raw</strong> MAR &lt; <code>MAR_off</code> (lips closed; raw rather than smoothed is a review-flagged simplification) while Silero indicates speech within ±50 ms — <em>someone is audible and it is visibly not that face speaking... or is it?</em> Candidates are deduplicated to one per <code>trackb_min_spacing_ms = 2000</code>, windowed ±1000 ms (clamped; discarded if clipping leaves &lt;1000 ms), and encoded.</p>
+<p>Then the <strong>M-Trap</strong> (guardrail 4): if <code>cos(candidate, E_seed) &gt; mtrap_sim_max = 0.60</code>, the candidate is discarded (logged as <code>mtrap_high_sim_to_seed</code>). The trap exists because the trigger condition has a systematic false positive: <strong>bilabials and nasals (/m/, /b/, /n/) are produced with closed lips by the target</strong> while the target is the one speaking. Without the trap, those windows — acoustically <em>target</em> speech — enter <code>E_anti</code>, and the poisoning is self-reinforcing: <code>sim(E_composite, E_anti)</code> rises, Gate C margins collapse, and the anti-profile begins rejecting the target's own enrollment windows. The trap's cost is acceptable by construction: a genuine interviewer vector scoring &gt;0.60 against the seed is precisely the acoustically-confusable-voices case in which automatic anti-collection <em>should</em> abstain and let guardrail 8 (§5.11) escalate to a human.</p>
+<p>Track B vectors aggregate by duration-weighted mean into <code>E_anti</code>, recomputed after each video; an increase in the anti-pool's pairwise-cosine variance &gt; <code>pool_var_warning = 0.05</code> across videos logs a degradation warning.</p>
+<h2 id="58-track-c-the-operator-anti-click">5.8 Track C: the operator anti-click</h2>
+<p>When the interviewer is on camera, the operator may click them (lips closed) for a high-confidence anti vector, which also fixes <code>F_interviewer</code> — the identity used to <em>match</em> the interviewer in subsequent frames (otherwise the highest-confidence non-target face stands in). Three validations, all re-click on failure: clicked face must <strong>not</strong> match <code>F_target</code> (<code>cos ≥ face_reid_threshold = 0.40</code> → <code>anti_click_matches_target</code>, guardrail 3); the <em>target's</em> lips must be closed at the click frame (target MAR ≥ <code>MAR_off</code> → re-click — the audio at that PTS must not be the target's); Silero must show energy at the click PTS (an anti vector of room tone is worse than none). The ±1000 ms window is encoded and pooled with priority semantics (<code>anti_track_c</code>, <code>operator_verified=true</code>).</p>
+<h2 id="59-encoding-the-single-pass-rule">5.9 Encoding: the single-pass rule</h2>
+<p>Every accepted window is encoded by ECAPA-TDNN (SpeechBrain <code>spkrec-ecapa-voxceleb</code>, C=1024, 192-dim output) in <strong>one forward pass regardless of length</strong> — on 48 GB even a 60-second window is trivial, so the earlier 10 s sub-chunking rule (a VRAM workaround) was deleted as dead weight. Sanity cap only: above <code>encode_max_ms = 60000</code>, split at 60 s boundaries with 2 s overlap and duration-weight-pool the chunk vectors. All d-vectors are <strong>L2-normalized at the encoding boundary</strong> and handled as plain Python float lists above it (framework-free, <code>fsum</code>-reduced). PCM slicing is exact: local-PTS ms minus <code>audio_start_pts_ms</code>, times 16 samples/ms, clamped to the buffer.</p>
+<h2 id="510-the-triple-validation-gate-and-pool-arithmetic">5.10 The Triple Validation Gate and pool arithmetic</h2>
+<p>Candidate Track A windows (from the production observation stream, with identities assigned per frame by best-cosine-above-0.40 matching) first face two pre-gates: <strong>seed-span overlap</strong> (a window intersecting the seed's span on the seed's file is discarded — the seed must not double-count into the pool) and <strong>minimum length</strong> (&lt; <code>min_enroll_len_ms = 2000</code> discarded). Survivors are encoded once and evaluated <strong>A → B → C, first failure wins</strong>, every discard logged with its full detail dict:</p>
+<table>
+<thead>
+<tr>
+<th>Gate</th>
+<th>Pass condition (exact code semantics)</th>
+<th>Fail reasons logged</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>A</strong></td>
+<td>VAD coverage ≥ 0.50 (Silero-overlap ms ÷ window ms; the spec's &quot;Silero confirms speech,&quot; quantified — review-flagged) <strong>and</strong>, if the interviewer was ever visible during the window, interviewer-closed fraction ≥ 0.80 (<code>int_lips_closed_frac</code>); never-visible ⇒ vacuous pass</td>
+<td><code>vad_coverage_low</code>, <code>interviewer_lips_open</code></td>
+</tr>
+<tr>
+<td><strong>B</strong></td>
+<td><code>cos(window, E_seed) ≥ 0.70</code> (<code>threshold_target</code>; fails on <code>&lt;</code>)</td>
+<td><code>low_sim_to_seed</code></td>
+</tr>
+<tr>
+<td><strong>C</strong></td>
+<td>only when the anti pool is non-empty: <code>cos(window, E_anti) ≤ 0.50</code> (<code>threshold_anti</code>; fails on <code>&gt;</code>) <strong>and</strong> <code>cos_seed − cos_anti ≥ 0.15</code> (<code>margin_minimum</code>; fails on <code>&lt;</code>)</td>
+<td><code>high_sim_to_anti</code>, <code>margin_too_small</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Gate C fails open</strong>: with no anti profile, it is <em>skipped, never failed</em> (<code>anti_applied=false</code> recorded) — the deliberate robustness rule for interviewer-off-camera sessions, compensated by the NO_ANTI quality escalation (§5.11) and Layer 2's flagging.</p>
+<p><strong>Pool arithmetic.</strong> <code>E_composite = L2( Σᵢ vᵢ·dᵢ / Σᵢ dᵢ )</code> over the cumulative pool (seed + all accepted windows, all videos), recomputed after each video — so video 2's gates already use a better composite than video 1's (the designed order dependence behind the strict-sequential rule). Duration weighting is the defense against short-window noise: a marginal 2 s window cannot outvote a clean 10 s window, because votes are milliseconds. Pool <strong>variance</strong> is the population variance of all C(n,2) pairwise cosines (fixed i&lt;j order, <code>fsum</code>) — a scalar self-consistency measure: a clean single-speaker pool has high mutual similarity and low variance; contamination or drift widens it.</p>
+<h2 id="511-quality-states-the-second-pass-and-the-freeze">5.11 Quality states, the second pass, and the freeze</h2>
+<p>After each video (<code>assess_quality</code>):</p>
+<table>
+<thead>
+<tr>
+<th>State</th>
+<th>Condition</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>STRONG</strong></td>
+<td>verified ≥ 45 000 ms (<strong>60 000 ms when the anti pool is empty</strong> — the NO_ANTI escalation: with Gate C inert, more evidence is demanded) <strong>and</strong> pool variance ≤ 0.05</td>
+</tr>
+<tr>
+<td><strong>MARGINAL</strong></td>
+<td>verified ≥ 20 000 ms (this absorbs the spec's &quot;high variance&quot; branch: meeting the seconds bar with variance &gt; 0.05 lands here, not STRONG)</td>
+</tr>
+<tr>
+<td><strong>INSUFFICIENT</strong></td>
+<td>below 20 000 ms</td>
+</tr>
+</tbody>
+</table>
+<p><strong>MARGINAL second pass</strong> (&quot;second pass with improved anchor&quot;): this video's Gate-C-<em>failed</em> candidates are re-evaluated against the <strong>end-of-video, grown</strong> anti profile — vectors and <code>sim_seed</code> are reused (each window is encoded exactly once, ever), only <code>sim_anti</code> is recomputed. Acceptances re-enter the pool, the composite is recomputed, and the state is reassessed. This recovers windows that failed only because the anti profile was young when they were first judged.</p>
+<p><strong>Guardrail 8</strong>, after every video with an anti profile: <code>sim(E_composite, E_anti) &gt; 0.45</code> → warning; <code>&gt; 0.60</code> → <strong>blocking halt</strong> (<code>enrollment_contamination_critical</code>) — if the target profile resembles the anti profile, either enrollment is contaminated or the voices are genuinely confusable, and both demand a human before any tracking happens. <strong>Guardrail 9</strong>, at batch end: still under 20 s verified (or final state INSUFFICIENT) → terminal halt (<code>critical_enrollment_failure</code>). High final variance (&gt; 0.05) is a <em>warning</em>, never an auto-discard — &quot;human decides&quot; is the spec's explicit rule.</p>
+<p>The batch ends with the <strong>freeze</strong>: a <code>layer1_freeze</code> entry carrying <code>e_composite_sha256</code>, <code>e_anti_sha256</code>, the anti-pool hash, pool sizes, verified ms, variance, and the note &quot;E_composite is FROZEN — never modified after this entry.&quot; That hash is the <code>enrollment_ref</code> every Layer 2 artifact points back to. Every accepted window has already been persisted as a raw WAV slice plus canonical JSON sidecar (PTS ranges local and global, duration, end reason, MAR trace) under <code>&lt;work&gt;/enroll/</code> — the auditor can re-encode any pool member from its preserved audio and reproduce the pool arithmetic end to end.</p>
+<h2 id="512-the-nine-guardrails-mapped">5.12 The nine guardrails, mapped</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Guard</th>
+<th>Code site</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>Speaking-click overlap</td>
+<td>seed window non-target lips-open fraction ≤ 0.20 (§5.6)</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Speaking-click duration</td>
+<td>seed ≥ 3000 ms (§5.6)</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Anti-click identity</td>
+<td>clicked face must not match <code>F_target</code> (§5.8)</td>
+</tr>
+<tr>
+<td>4</td>
+<td>M-Trap</td>
+<td><code>mtrap_discard</code> on Track B (§5.7)</td>
+</tr>
+<tr>
+<td>5</td>
+<td>InsightFace confidence</td>
+<td><code>det_score &lt; 0.50</code> ⇒ face does not exist (§5.3)</td>
+</tr>
+<tr>
+<td>6</td>
+<td>Low detection quality</td>
+<td>running mean ReID similarity &lt; 0.50 → <code>low_detection_quality</code> warning</td>
+</tr>
+<tr>
+<td>7</td>
+<td>Separation margin</td>
+<td>Gate C margin ≥ 0.15 (§5.10)</td>
+</tr>
+<tr>
+<td>8</td>
+<td>Acoustic similarity</td>
+<td><code>contamination_level</code> warning 0.45 / halt 0.60 (§5.11)</td>
+</tr>
+<tr>
+<td>9</td>
+<td>Critical failure</td>
+<td>batch-end INSUFFICIENT → blocking halt (§5.11)</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h1 id="part-vi--layer-2-calibrated-sliding-window-tracking-layer2_trackerpy">Part VI — Layer 2: Calibrated Sliding-Window Tracking (<code>layer2_tracker.py</code>)</h1>
+<h2 id="61-score-semantics-a-cosine-is-not-a-probability">6.1 Score semantics: a cosine is not a probability</h2>
+<p>Layer 2's per-window quantities are <strong>raw cosine similarities in [−1, 1]</strong>, named <code>S_target</code> and <code>S_interviewer</code> — never <code>P(·)</code>. Cosine is the <em>native</em> metric of this embedding space: ECAPA is trained with AAM-Softmax (ArcFace-family), which optimizes angular margins; inference that compares anything but angles is operating in a foreign geometry. The historical bug this section guards against: earlier drafts used probability-style fixed tiers (0.85/0.65/0.30). Empirically, genuine same-speaker short-window cosines land around 0.4–0.8 and different-speaker same-channel cosines around 0.1–0.4 — a fixed 0.85 HIGH gate would have starved the HIGH tier on perfectly good sessions and fired near-zero-activity alerts as the <em>normal</em> outcome. The structural fix is per-session calibration (§6.2) plus naming discipline enforced through every payload.</p>
+<h2 id="62-deterministic-threshold-calibration">6.2 Deterministic threshold calibration</h2>
+<p>Calibration is <strong>pure, ordered arithmetic on frozen vectors</strong> — no sampling, no optimization — run once per batch after the sanity check, bit-reproducible by construction.</p>
+<p><strong>Inputs.</strong> Genuine scores: for each pool vector <code>vᵢ</code>, the <strong>leave-one-out</strong> score <code>sᵢ = cos(vᵢ, L2(duration_weighted_mean(pool ∖ i)))</code>. LOO-against-the-pooled-rest mirrors the <em>test condition</em> — at scan time, a short window is scored against a pooled profile — and the duration weighting matches the composite's own arithmetic, so the genuine distribution is measured with the same estimator the tracker uses. Impostor scores: <code>tⱼ = cos(aⱼ, E_composite)</code> for every anti-pool vector — each known interviewer sample against the actual conditioning profile.</p>
+<p><strong>Derivation</strong> (<code>derive_thresholds</code>, with every intermediate written into the calibration record):</p>
+<pre class="hljs"><code><div>theta_high_raw = max( q10(genuine),  max(impostor) + 0.05 )      # anti available
+theta_high_raw = max( q10(genuine),  0.55 )                      # no anti pool
+theta_high     = clamp(theta_high_raw, 0.45, 0.75)
+theta_med      = max(theta_high − 0.15, 0.30)
+evidence floor = 0.20                                            # architectural
+</div></code></pre>
+<p>Term by term: <strong><code>q10(genuine)</code></strong> places the gate to admit ≈90 % of genuine-like windows (windows the verified pool itself would score). <strong><code>max(impostor) + 0.05</code></strong> places it strictly above <em>every observed</em> impostor with a safety margin — the maximum, not a quantile, because the forensic posture is &quot;no observed impostor may pass,&quot; not &quot;few.&quot; The <strong>clamp low (0.45)</strong> stops a degenerate genuine distribution from opening the gate into the cross-speaker score zone; the <strong>clamp high (0.75)</strong> is the overlap detector: if the data pushes θ beyond 0.75, the genuine and impostor distributions overlap, the gate cannot separate them alone, a <strong><code>CALIBRATION_OVERLAP</code></strong> warning is logged, and the margin rule becomes the primary discriminator (a still-higher threshold would reject genuine speech wholesale — flagging beats failing silently). <strong><code>quantile_sorted</code></strong> is pinned to one definition — linear interpolation between order statistics at position <code>q·(n−1)</code> — because &quot;the 10th percentile&quot; has half a dozen conventions and an auditor must reproduce the exact number.</p>
+<p><strong>Degenerations</strong>, all flagged in every downstream block: anti pool empty → kind <code>DERIVED_NO_ANTI</code> with the 0.55 floor; fewer than <code>min_calibration_windows = 10</code> enrollment windows → kind <code>FALLBACK_DEFAULTS</code> with <code>θ_high = 0.60, θ_med = 0.40</code> (including the fully degenerate seed-only pool: leave-one-out needs at least two vectors, so a single-window pool yields zero genuine scores and routes here rather than crashing).</p>
+<p><strong>What is deliberately <em>not</em> calibrated:</strong> the dual-target margin (<code>margin_minimum = 0.15</code>). The margin is a <em>relative separation requirement between two scores of the same window</em>, not a property of either marginal distribution; deriving it from pooled statistics would couple it to enrollment quality and quietly weaken the one discriminator that still works when the distributions overlap. It is identical to Layer 1's Gate C margin by design.</p>
+<p><strong>Audit.</strong> The full record — both sorted score lists, n's, every intermediate, clamping events, the enrollment_ref — is written as a <code>calibration</code> manifest entry, and <code>calibration_ref = sha256(record)</code> stamps every output block. Operator overrides go only through <code>record_parameter_change</code> (identity + stated reason, append-only).</p>
+<p>Before any scoring, the <strong>sanity gate</strong> re-checks <code>sim(E_composite, E_anti)</code> with the same 0.45/0.60 warning/halt constants as Layer 1 — re-checked at the consumer because Layer 2 may run in a different process lifetime than the layer that froze the profile.</p>
+<h2 id="63-windowing-the-skip-rule-and-the-scorer">6.3 Windowing, the skip rule, and the scorer</h2>
+<p><code>plan_windows(duration, 5000, 1000)</code>: data-relative spans <code>[0,5000), [1000,6000), …</code> while they fit; a file shorter than one window yields a single full-file window. <strong>Why 5 s / 1 s:</strong> ECAPA d-vectors need seconds of context before cosine scores stabilize (sub-second windows are noisy in embedding space), while the 1 s hop samples the timeline densely enough that each interior 1 s block receives <strong>five</strong> overlapping estimates — the raw material median pooling needs.</p>
+<p><strong>Silero skip rule:</strong> a window whose overlap with the speech map is <code>&lt; 20 %</code> of its length is not scored; it is logged (<code>layer2_window_skipped</code>, <code>SKIPPED_NONSPEECH</code>) with its PTS span. This is a <em>compute</em> skip with an audit trail — the audio is untouched, and the skipped spans are enumerable afterward.</p>
+<p>The production scorer (<code>_ecapa_scorer</code>) implements §2.3's batching: spans grouped by length, ascending; fixed 256-window batches with repeat-padding on multi-batch groups; embeddings L2-normalized; <code>S_target = cos(v, E_composite)</code>, <code>S_interviewer = cos(v, E_anti)</code> or <code>None</code>. The scorer is a <strong>callable seam</strong> (<code>Scorer: spans → [(S_t, S_i|None)]</code>) — production binds the resident model; the self-test injects synthetic scorers and drives the <em>entire</em> downstream flow without torch (§8.4).</p>
+<h2 id="64-median-pooling-onto-the-1-second-block-grid">6.4 Median pooling onto the 1-second block grid</h2>
+<p>The grid has <code>duration_ms // 1000</code> blocks; a trailing partial second <strong>never enters the grid</strong> — it can only be excluded, never admitted (conservative by construction). A window votes only on blocks it <strong>fully covers</strong>: <code>first_block = ceil(w_start/1000)</code>, <code>last_block = floor(w_end/1000)</code> (exclusive). Interior blocks therefore collect 5 votes; blocks near file edges taper to 4…1; blocks with zero covering scored windows become <code>SKIPPED_NONSPEECH</code>. Per block, the score is the <strong>median</strong> of its votes (both tracks pooled independently).</p>
+<p><strong>Why median, not mean:</strong> the failure mode being defended against is the transient excursion — a window straddling a turn boundary, a cough, a sliding-window edge artifact. The median of <em>k</em> votes tolerates up to ⌊(k−1)/2⌋ corrupted votes before moving materially (for k=5: two bad windows out of five leave the median on clean evidence); a mean is dragged by every excursion proportionally. <strong>Turn-boundary dilution</strong> is the worked case: a 5 s window straddling a speaker change embeds a <em>mixture</em>, and its d-vector is a blend — the score is diluted, not wrong. Blocks deep inside a target turn are covered mostly by clean windows and stay HIGH; blocks at the turn edge are covered by mixed windows and sink to MEDIUM — which is the <em>desired</em> conservatism, because turn edges are exactly where interviewer bleed lives. Edge-trim (§6.6) then sharpens the surviving boundaries, and Layer 3 independently screens whatever survives.</p>
+<h2 id="65-tiering-and-the-margin-demotion">6.5 Tiering and the margin demotion</h2>
+<p>Exact predicate per evaluated block (<code>tier_block</code>):</p>
+<pre class="hljs"><code><div>HIGH    iff S_target &gt; theta_high  AND  ( no anti profile
+                                          OR (S_interviewer present AND
+                                              S_target − S_interviewer &gt; 0.15) )
+MEDIUM  iff S_target &gt; theta_med            (also: margin-failed HIGH, see below)
+SUB     iff S_target ≥ 0.20                 (sub-threshold evidence log)
+REJECT  otherwise
+</div></code></pre>
+<p>A block <strong>above θ_high that fails the margin</strong> is demoted to MEDIUM with <strong><code>margin_failed = true</code></strong> — not rejected, because the target evidence is real; not HIGH, because the interviewer evidence is too close. That flag is load-bearing downstream: Layer 3's gap dominance guard (§7.5) treats <code>MEDIUM ∧ margin_failed</code> as interviewer evidence when deciding whether a gap may be bridged. Every block becomes an <code>OP_BLOCK</code> worker record (tier, both medians, evaluation count, margin flag, <code>no_anti_profile</code>), so the <em>full</em> tier map — not just the survivors — is in the manifest. Tier policy is the spec's Option A: MEDIUM is never auto-promoted to clean output; it is human-review evidence. SUB (0.20–θ_med) is investigative evidence only; below 0.20, the block is rejected with its score logged.</p>
+<h2 id="66-edge-trim-boundary-refinement">6.6 Edge-Trim Boundary Refinement</h2>
+<p>The coarse scan localizes target speech reliably, but its block edges inherit up to ±1 s of uncertainty — and that uncertainty lives exactly where interviewer bleed does. For each <strong>maximal run of contiguous HIGH blocks</strong>:</p>
+<ul>
+<li><strong>Positions:</strong> 17 candidate edge positions <code>p ∈ [edge − 2000, edge + 2000]</code>, step 250 ms, per boundary.</li>
+<li><strong>Fine windows:</strong> leading edge scores <code>[p, p+2000)</code>; trailing edge scores <code>[p−2000, p)</code>. Windows clamped at file bounds to under 1000 ms are skipped (marked <code>None</code> in the audit trace). Each boundary's windows go to the scorer as one batch.</li>
+<li><strong>Pass criterion:</strong> <em>the same frozen standard as the coarse scan</em> — <code>S_target &gt; θ_high</code> and, with an anti profile, margin <code>&gt; 0.15</code>. The fine pass must not invent a new standard; it re-applies the calibrated one at 250 ms granularity.</li>
+<li><strong>Trim:</strong> new start = the <strong>smallest</strong> passing position <code>p ≥ run_start</code>; new end = the <strong>largest</strong> passing position <code>p ≤ run_end</code>. Positions outside the run are scanned (their scores appear in the trace for the auditor) but are <strong>ineligible</strong> — which is the trim-only invariant <em>by construction</em>: the run can shrink, never grow, so refinement is monotonically conservative and audio outside the coarse HIGH region can never be promoted by this step.</li>
+<li><strong>Demotion rule:</strong> no passing position, or a required trim beyond <code>edge_max_trim_ms = 750</code> → that boundary's <strong>single edge 1 s block</strong> is demoted to MEDIUM (<code>demoted_by_edge_trim</code>, tier counts adjusted), and the scan does <strong>not</strong> recurse onto the next block (review-flagged: recursion could cascade-demote an entire run off one bad fine scan; a bounded correction plus an audit trail beats unbounded automation). A one-block run demotes at most once (the trailing demotion is guarded against crossing the new start).</li>
+<li><strong>Audit:</strong> <code>leading_trim_ms</code>, <code>trailing_trim_ms</code>, demotion flags, and the <strong>complete fine-scale score traces</strong> per boundary go into an <code>OP_EDGE</code> record.</li>
+</ul>
+<p>Surviving runs emit per-block records carrying local <em>and</em> global PTS, both medians, the edge-trim attribution on the first/last block, and the <code>no_anti_profile</code> flag — boundaries now at 250 ms resolution for Layer 3.</p>
+<h2 id="67-diagnostics-activity-ratio-and-drift">6.7 Diagnostics: activity ratio and drift</h2>
+<p>Per file: <code>ratio = HIGH ms ÷ Silero speech ms</code> (None if the file has no speech) → <code>NORMAL &gt; 0.25</code>, <code>LOW_ADVISORY 0.10–0.25</code>, <code>NEAR_ZERO_ALERT &lt; 0.10</code> (the alert escalates to a main-manifest warning recommending manual review). Logged beside it: <strong><code>unattributed_speech_ms</code></strong> = Silero speech not claimed as HIGH — the analyst's context number for distinguishing &quot;interviewer dominated the session&quot; from &quot;model failure.&quot; The system cannot auto-distinguish genuine target silence from tracking failure; it can only refuse to hide the question. Cross-video <strong>drift</strong>: the current file's mean <code>S_target</code> over its first 30 000 ms of HIGH blocks vs. the previous file's mean over <em>all</em> its HIGH blocks; a drop &gt; 0.10 logs a <code>drift_notice</code> (informational; the previous mean carries forward across HIGH-less files; quantification review-flagged).</p>
+<h2 id="68-the-single-authoritative-pass-and-the-output-document">6.8 The single authoritative pass and the output document</h2>
+<p>Enrollment improves monotonically through the batch, so any file scored against an in-progress composite would need rescoring anyway; and Layer 2 has no feedback loop, so exactly one result matters — the one produced with <code>E_composite_final</code> and final-pool calibration. Layer 2 therefore runs <strong>once per batch, after Layer 1 completes</strong>, eliminating both the superseded-results clutter and the cold-start hazard (no file is ever scored against a young profile). An optional preview pass exists (operator flag; init entry marked <code>superseded_by: authoritative_pass</code>); <strong>Layer 3 refuses non-authoritative input with a blocking halt</strong> (§7.6), so a preview can never leak into output.</p>
+<p>The run ends with <code>layer2_output.json</code> (schema <code>spovnob-layer2-output-v1</code>): <code>enrollment_ref</code>, <code>calibration_ref</code>, <code>thresholds_used</code> (θ values, margin, floor, calibration kind, <code>operator_modified: false</code>), and per file the tier counts, activity diagnostics, and HIGH runs with their per-block records. Canonical JSON, SHA-256 recorded as an <code>output_hash</code> manifest entry — the hash every Layer 3 artifact points back to.</p>
+<hr>
+<h1 id="part-vii--layer-3-overlap-exclusion-and-final-output-layer3_contaminationpy">Part VII — Layer 3: Overlap Exclusion and Final Output (<code>layer3_contamination.py</code>)</h1>
+<h2 id="71-why-a-separate-layer">7.1 Why a separate layer</h2>
+<p>Layer 2 answers <em>&quot;where is the target speaking?&quot;</em> with a tracker that, by its nature, cannot certify single-speaker-ness — a high target cosine is compatible with the interviewer talking <em>over</em> the target. Layer 3 answers <em>&quot;is that speech contaminated by simultaneous speech?&quot;</em> with a model trained for exactly that question, applied as the final filter before anything is called clean. The separation keeps each decision independently auditable, and lets Layer 2 stay (slightly) permissive while Layer 3 stays absolute.</p>
+<h2 id="72-the-overlap-detector">7.2 The overlap detector</h2>
+<p>PyAnnote <strong>segmentation-3.0</strong> wrapped in <code>OverlappedSpeechDetection</code>, instantiated by the gate with <code>{&quot;min_duration_on&quot;: 0.0, &quot;min_duration_off&quot;: 0.0}</code> — the model's <em>own</em> temporal smoothing and minimum-duration filters are zeroed because <strong>SPOVNOB owns its temporal policy explicitly</strong>: a hidden 100 ms min-duration inside a third-party pipeline would be an unaudited rule shaping the evidence. OVD runs <strong>once over each full file</strong> (decision-noted): a full-file pass gives the segmentation model maximal context, is simpler and deterministic, and is strictly more information than per-block windowing; the resulting regions are then intersected with blocks and gaps in pure integer arithmetic. Region timestamps: the pipeline's float seconds × 1000, through Python <code>round()</code> (banker's rounding — same tie rule as Layer 0's Decimal path), plus <code>audio_start_pts_ms</code>; finally <code>merge_regions</code> (sort; merge overlapping <strong>and touching</strong>; drop degenerates) yields disjoint local-PTS spans, logged per file (<code>OP_OVD</code>) with the region count and total ms.</p>
+<h2 id="73-the-nan-only-exclusion-policy">7.3 The NaN-Only Exclusion Policy</h2>
+<p>All interval logic is <strong>half-open</strong> <code>[start, end)</code> — <code>intervals_intersect(a0,a1,b0,b1) = a0 &lt; b1 ∧ b0 &lt; a1</code> — so blocks that merely <em>touch</em> a region (share a boundary millisecond) do not intersect it; adjacency is not contamination.</p>
+<p><code>classify_run_blocks</code>: any overlap region intersecting a block voids the <strong>entire block</strong> — a NaN record preserving the designation (<code>&quot;NaN&quot;</code> — a string, §3.2), decision <code>CONTAMINATED</code>, the span, both Layer 2 medians, and the exact regions hit (<code>OP_NAN</code>, permanently in the manifest). <strong>Why whole-block voiding</strong> rather than excising just the overlapped milliseconds: trimming to the overlap's edge means trusting the OVD boundary to the millisecond, and boundary-trust is precisely the guesswork the doctrine forbids — detection models are reliable about <em>presence</em>, fuzzy about <em>edges</em>. Losing up to one second of genuine speech is the price of never emitting a sample that overlapped; the trade is deliberate and one-directional. The surviving blocks regroup into clean sub-segments wherever adjacent (<code>prev.end == next.start</code>).</p>
+<p><strong>The forbidden alternative</strong>, stated in the code's own docstring because it must survive every summarization: separation/reconstruction models (HTDemucs, SepFormer, SpeakerBeam, …) are categorically banned. They would &quot;rescue&quot; the NaN blocks by synthesizing what the isolated target <em>probably</em> sounded like — hallucinated acoustic structure, forensically indefensible. Pure exclusion is the only mathematically safe path.</p>
+<h2 id="74-temporal-smoothing--here-and-only-here">7.4 Temporal smoothing — here, and only here</h2>
+<p>Natural speech is full of sub-400 ms closures (plosives, breath intakes) that fragment HIGH runs. Layer 3 bridges a gap between two clean sub-segments <strong>iff all three hold</strong>:</p>
+<ol>
+<li><code>gap &lt; merge_gap_ms = 400</code>;</li>
+<li>the gap interval itself is <strong>overlap-free</strong> (no OVD region intersects it);</li>
+<li>the <strong>gap dominance guard</strong> (§7.5) does not object.</li>
+</ol>
+<p>Why smoothing was <em>relocated out of Layer 2</em> (a Rev-2 architectural fix): if Layer 2 bridged a 300 ms gap before overlap detection, it could swallow a rapid 300 ms interviewer interjection — fusing it <em>into</em> a block and masking it from the detector. Bridging is only legitimate after the gap has been proven empty, so the merge lives strictly downstream of OVD. Note the asymmetry with §7.3: bridged gap audio <strong>is included in the output segment</strong> — that is the point of smoothing — and it is <em>unmodified original signal</em> that has itself just been verified overlap-free; including it reconstructs nothing. A gap created by a voided block can never bridge: it intersects an overlap region by construction (and at ≥1000 ms it also fails the length rule). Every gap evaluation — bridged or refused — is logged with its reason (<code>bridged</code> / <code>gap_too_long</code> / <code>overlap_in_gap</code> / <code>interviewer_evidence_in_gap</code>) in the file summary.</p>
+<h2 id="75-the-gap-dominance-guard-closing-the-ovd-blind-spot">7.5 The gap dominance guard: closing the OVD blind spot</h2>
+<p>OVD detects <strong>simultaneous</strong> speech. A solo interviewer interjection over target <em>silence</em> — &quot;mm-hm&quot; landing entirely inside a 350 ms target pause — is not overlap, and an overlap-only check would happily bridge that gap, <strong>gluing interviewer audio into the middle of a &quot;clean&quot; target segment</strong>. The guard (implementation-added, default ON, manifest-logged): refuse the bridge if any Layer 2 block overlapping the gap shows interviewer evidence, defined as</p>
+<pre class="hljs"><code><div>(tier == MEDIUM and margin_failed)        # target-ish score but interviewer too close
+or (S_interviewer_median ≥ S_target_median, both present)
+</div></code></pre>
+<p>It consumes only <strong>already-computed Layer 2 scores</strong> (the full block map that <code>FileTrack.blocks</code> carries — the additive Module-4 amendment made for exactly this consumer); no new inference, no new model. And it is <strong>refuse-only</strong>: like trim-only edge refinement, the guard can only withhold a merge, never create or extend audio — the same one-directional safety class as everything else in the output path. With the block map absent it is inert (the spec's base rule is OVD-only).</p>
+<h2 id="76-outputs-and-the-authoritative-only-contract">7.6 Outputs and the authoritative-only contract</h2>
+<p><code>run_layer3</code> <strong>halts</strong> if handed a non-authoritative Layer 2 result (<code>layer3_requires_authoritative_layer2</code>). Per surviving segment: the <strong>original PCM</strong> is sliced (<code>pcm_slice</code>, exact 16 samples/ms) and written as WAV plus a canonical JSON sidecar stamped <code>&quot;policy&quot;: &quot;original_signal_only_no_reconstruction&quot;</code>, both SHA-256-hashed, both in the worker record (<code>OP_SEGMENT</code>) with local and global PTS, block count, and bridged gaps. Per file: clean/contaminated/bridged totals and the full gap-decision audit (<code>OP_FILE</code>). Batch-wide: <code>layer3_output.json</code> (schema <code>spovnob-layer3-output-v1</code>, carrying <code>layer2_output_sha256</code> — the explicit hash link upstream), canonicalized, hashed, recorded (<code>output_hash</code> with clean/contaminated totals). These segments are the pipeline's <strong>final verified output</strong> and the input contract for the deferred behavioral-analysis phase.</p>
+<hr>
+<h1 id="part-viii--the-pipeline-runner-and-the-end-to-end-audit-story-pipeline_runnerpy">Part VIII — The Pipeline Runner and the End-to-End Audit Story (<code>pipeline_runner.py</code>)</h1>
+<h2 id="81-the-chain-and-the-closing-verification">8.1 The chain, and the closing verification</h2>
+<p><code>run_pipeline()</code> is the single production entrypoint:</p>
+<pre class="hljs"><code><div>run_gate (determinism + vendoring + resident models)
+  → preprocess_batch (Layer 0; RAM preload)
+  → run_layer1 (sequential enrollment; freeze)
+  → run_layer2 (authoritative pass)
+  → run_layer3 (overlap exclusion; clean segments)
+  → finalize_pipeline (summary document + pipeline_complete entry)
+</div></code></pre>
+<p>Models load once at the top and are passed down — the Resident Model Policy is enforced by the call graph itself. Per-stage wall-clock durations are collected on a console-only stage clock; <strong>wall time never enters any payload</strong> (it would break bit-reproducibility; the only timestamps in the system live in audit blocks, §3.1). After the manifest context closes, the runner re-opens the file and <strong>re-walks the entire hash chain from disk</strong> (<code>SessionManifest.verify_chain</code>), refusing success on any inconsistency: <em>the run does not count unless its audit trail re-verifies.</em> The verified entry count is reported.</p>
+<h2 id="82-the-summary-document">8.2 The summary document</h2>
+<p><code>pipeline_output.json</code> (schema <code>spovnob-pipeline-output-v1</code>), built by the pure <code>build_pipeline_summary()</code> and Rule-6-validated before writing: per-file facts (source SHA-256, duration, offset, Silero totals) · enrollment refs (<code>e_composite_sha256</code>, <code>e_anti_sha256</code>, pool sizes, verified ms, final quality state) · Layer 2 (output hash, <code>calibration_ref</code>, kind, both θ values, total HIGH ms) · Layer 3 (output hash, clean/contaminated totals, segment and NaN counts) · the <strong>complete clean-segment listing</strong> (PTS spans local+global, durations, bridged-gap counts, WAV paths and hashes). Its SHA-256 is recorded in the terminal <code>pipeline_complete</code> manifest entry alongside the Layer 2 and Layer 3 output hashes — one entry from which every artifact of the run is reachable by hash.</p>
+<h2 id="83-the-auditors-replay-procedure">8.3 The auditor's replay procedure</h2>
+<ol>
+<li><strong>Verify the record</strong>: <code>SessionManifest.verify_chain(manifest)</code> — any tampering localizes to a line number (§3.3). Confirm the final entry is <code>pipeline_complete</code> (truncation check), and compare the final <code>entry_sha256</code> against the off-box retained copy if one exists (Part IX, item 10).</li>
+<li><strong>Verify the materials</strong>: re-hash the model store against <code>expected_hashes.json</code>; compare the recorded <code>gpu_workload_checksum</code> hash and gate entries (version pins, platform) against the replay machine's.</li>
+<li><strong>Replay</strong>: run <code>pipeline_runner.py --run</code> on the same inputs and store, fresh work directory.</li>
+<li><strong>Compare</strong>: the <code>payload_sha256</code> stream of decision entries; the three output-document hashes; every per-WAV SHA-256. Expected to differ: audit blocks (timestamps, operator), hence <code>entry_sha256</code> and the chain values — by design (§3.1).</li>
+<li><strong>Path caveat</strong> (Part IX, item 11): the hashed output documents embed absolute <code>wav_path</code>/<code>output_path</code> strings, so <em>document-level</em> hash equality requires replaying with identical paths; under a different work dir, compare the path-independent fields and the per-WAV content hashes, which are path-free.</li>
+<li>Any divergence localizes to the <strong>first differing payload</strong> in manifest order — the chain gives the auditor a bisection, not just a verdict.</li>
+</ol>
+<h2 id="84-the-testing-architecture">8.4 The testing architecture</h2>
+<p>Every heavy dependency sits behind an <strong>injectable seam</strong>: Layer 2's <code>Scorer</code> callable and <code>scorer_factory</code>, Layer 3's <code>OverlapProvider</code>, the gate's <code>version_of</code>. Production binds resident models; the self-tests inject synthetic implementations and drive the <em>complete decision flows</em> — calibration, pooling, tiering, edge-trim, NaN voiding, bridging, finalization — on a bare Python 3.10 with <strong>zero pip installs, no torch, no GPU</strong> (the standing test policy; every module asserts <code>torch not in sys.modules</code> on exit). What the self-tests deliberately cannot cover — GPU numerics, real model behavior, ffmpeg — is exactly what the environment gate measures <em>at every startup</em> (§2.5–2.6). The division is principled: pure logic is proven once per change by tests; environmental truth is proven once per run by the gate.</p>
+<hr>
+<h1 id="part-ix--bench-validation-register-and-known-limitations">Part IX — Bench-Validation Register and Known Limitations</h1>
+<p>Honesty section. Each item is either awaiting first-bench validation on the Ubuntu box, a review-flagged implementation decision the master spec left unspecified, or a structural limitation with a stated mitigation. Numbers are stable identifiers for bench notes.</p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Item</th>
+<th>Status / required action</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td><strong>MAR landmark indices</strong> — width pair <code>(52, 61)</code> duplicates the first vertical pair; as written MAR ≈ constant.</td>
+<td><strong>Highest-priority bench task.</strong> Confirm true 2d106det mouth-corner indices against real InsightFace output; correct via manifest-logged parameter change (<code>params.py</code> carries the VALIDATE-ON-BENCH banner).</td>
+</tr>
+<tr>
+<td>2</td>
+<td><strong><code>face.pose</code> availability and ordering</strong> — yaw is read as <code>pose[1]</code> assuming (pitch, yaw, roll); some InsightFace builds omit pose.</td>
+<td>Bench-verify. Absence is non-silent (<code>pose_unavailable</code> warning; yaw suspension inert for that video).</td>
+</tr>
+<tr>
+<td>3</td>
+<td><strong>Gate B <code>threshold_target = 0.70</code></strong> vs. real seed-vs-window cosine distributions.</td>
+<td>Benchmark on representative session audio; the spec itself anticipates lowering to 0.55–0.65.</td>
+</tr>
+<tr>
+<td>4</td>
+<td><strong>Calibration clamp range <code>[0.45, 0.75]</code></strong></td>
+<td>Benchmark against session score distributions.</td>
+</tr>
+<tr>
+<td>5</td>
+<td><strong>Gate A VAD coverage = 0.50</strong> — implementation-defined quantification of &quot;Silero confirms speech.&quot;</td>
+<td>Review-flagged default; tune on bench.</td>
+</tr>
+<tr>
+<td>6</td>
+<td><strong>Target absence → plosive semantics</strong> in the window machine (spec silent on the absence case).</td>
+<td>Review-flagged conservative choice; revisit if benches show premature window closure.</td>
+</tr>
+<tr>
+<td>7</td>
+<td><strong>Edge demotion: exactly one block, no recursion.</strong></td>
+<td>Review-flagged bounded-correction decision; deliberate.</td>
+</tr>
+<tr>
+<td>8</td>
+<td><strong>Drift quantification</strong> (first-30 s mean vs. previous file's all-HIGH mean).</td>
+<td>Review-flagged; informational-only signal.</td>
+</tr>
+<tr>
+<td>9</td>
+<td><strong>Frame/PTS count mismatch</strong> stops pairing at the shorter length (tail unanalyzed, warned).</td>
+<td>Acceptable for enrollment (audio layers unaffected); revisit if VFR benches show frequent mismatches.</td>
+</tr>
+<tr>
+<td>10</td>
+<td><strong>The hash chain is self-consistent, not externally anchored</strong> — whole-file rewrite or tail truncation by an attacker with disk access defeats in-file verification.</td>
+<td>Procedure: retain each run's final <code>entry_sha256</code> (and <code>pipeline_output.json</code> hash) off-box. One line in the run log converts these attacks into detectable ones.</td>
+</tr>
+<tr>
+<td>11</td>
+<td><strong>Absolute paths inside hashed output documents</strong> (<code>wav_path</code>, <code>output_path</code>) couple document hashes to the filesystem layout.</td>
+<td>Audit procedure §8.3 step 5; consider path-relativization in a future schema rev (would be <code>spovnob-*-output-v2</code>).</td>
+</tr>
+<tr>
+<td>12</td>
+<td><strong>Vendored-store completeness vs. the HF cache</strong> — SpeechBrain's loader can fall back to the global HuggingFace cache for auxiliary files (<code>label_encoder.txt</code>, observed in the WSL2 dry run, Gotchas §3); the cache is outside <code>expected_hashes.json</code> coverage.</td>
+<td>Hardening: ensure the vendored directories contain <em>every</em> repo file before freezing hashes, so the loader never needs the cache; treat a cache-dependent load as a vendoring defect.</td>
+</tr>
+<tr>
+<td>13</td>
+<td><strong>Single-batch length groups</strong> in the ECAPA scorer run at natural (input-determined) batch size.</td>
+<td>Reproducible by construction (§2.3); recorded for completeness.</td>
+</tr>
+<tr>
+<td>14</td>
+<td><strong>Behavioral/paralinguistic analysis</strong></td>
+<td>Deferred — requires a separate design phase. Layer 3's clean segments are its declared input contract. WavLM and HuBERT are fully removed (models: five).</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h1 id="appendix-a--complete-parameter-reference">Appendix A — Complete Parameter Reference</h1>
+<p><strong>Environment gate (<code>environment_gate.py</code>) — architectural constants</strong></p>
+<table>
+<thead>
+<tr>
+<th>Constant</th>
+<th>Value</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ECAPA_BATCH_WINDOWS</code></td>
+<td>256</td>
+<td>fixed Layer 2 inference batch (FP reduction order)</td>
+</tr>
+<tr>
+<td><code>VISUAL_BATCH_FRAMES</code></td>
+<td>32</td>
+<td>fixed YOLO frame batch</td>
+</tr>
+<tr>
+<td><code>TORCH_NUM_THREADS</code></td>
+<td>8</td>
+<td>fixed CPU intra-op threads</td>
+</tr>
+<tr>
+<td><code>GLOBAL_SEED</code></td>
+<td>20260611</td>
+<td>defense-in-depth seed</td>
+</tr>
+<tr>
+<td><code>INSIGHTFACE_DET_SIZE</code></td>
+<td>(640, 640)</td>
+<td>detector input size</td>
+</tr>
+<tr>
+<td><code>PYANNOTE_OVD_HYPERPARAMS</code></td>
+<td><code>min_duration_on=0.0, min_duration_off=0.0</code></td>
+<td>OVD's internal smoothing disabled</td>
+</tr>
+<tr>
+<td><code>EXPECTED_CUDA_VERSION</code> / <code>EXPECTED_PYTHON_PREFIX</code></td>
+<td>&quot;12.1&quot; / &quot;3.10.&quot;</td>
+<td>platform pins</td>
+</tr>
+<tr>
+<td><code>DETERMINISM_ENV</code></td>
+<td><code>CUBLAS_WORKSPACE_CONFIG=&quot;:4096:8&quot;</code>, <code>HF_HUB_OFFLINE=1</code>, <code>TRANSFORMERS_OFFLINE=1</code></td>
+<td>set at import time</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Layer 0 (<code>layer0_preprocessor.py</code>)</strong></p>
+<table>
+<thead>
+<tr>
+<th>Constant</th>
+<th>Value</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>SAMPLE_RATE</code></td>
+<td>16000</td>
+<td>pipeline-wide; 1 ms = 16 samples exactly</td>
+</tr>
+<tr>
+<td><code>SILERO_WINDOW_SAMPLES</code></td>
+<td>512</td>
+<td>32 ms VAD windows</td>
+</tr>
+<tr>
+<td><code>SILERO_THRESHOLD</code></td>
+<td>0.50</td>
+<td>speech decision</td>
+</tr>
+<tr>
+<td><code>SILERO_MIN_SILENCE_MS</code> / <code>SILERO_MIN_SPEECH_MS</code> / <code>SILERO_SPEECH_PAD_MS</code></td>
+<td>100 / 250 / 30</td>
+<td>merge / drop (pre-pad) / pad</td>
+</tr>
+<tr>
+<td><code>EXTRACT_WORKERS</code></td>
+<td>8</td>
+<td>parallel ffmpeg threads</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Layer 1 (<code>layer1_enrollment/params.py</code>, frozen dataclass <code>EnrollmentParams</code>)</strong></p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Default</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>face_reid_threshold</code></td>
+<td>0.40</td>
+<td>ArcFace cosine for target lock</td>
+</tr>
+<tr>
+<td><code>reid_warning_floor</code></td>
+<td>0.50</td>
+<td>guardrail 6 running-mean warning</td>
+</tr>
+<tr>
+<td><code>mar_on</code> / <code>mar_off</code></td>
+<td>0.55 / 0.40</td>
+<td>MAR hysteresis</td>
+</tr>
+<tr>
+<td><code>plosive_ms</code></td>
+<td>500</td>
+<td>closure grace timer</td>
+</tr>
+<tr>
+<td><code>vad_tol_ms</code></td>
+<td>50</td>
+<td>Silero/PTS alignment tolerance</td>
+</tr>
+<tr>
+<td><code>min_enroll_len_ms</code></td>
+<td>2000</td>
+<td>candidate floor</td>
+</tr>
+<tr>
+<td><code>seed_min_ms</code></td>
+<td>3000</td>
+<td>seed floor (no maximum)</td>
+</tr>
+<tr>
+<td><code>int_lips_closed_frac</code></td>
+<td>0.80</td>
+<td>Gate A interviewer-silent fraction</td>
+</tr>
+<tr>
+<td><code>threshold_target</code></td>
+<td>0.70</td>
+<td>Gate B (≥) — bench item 3</td>
+</tr>
+<tr>
+<td><code>threshold_anti</code></td>
+<td>0.50</td>
+<td>Gate C ceiling (≤)</td>
+</tr>
+<tr>
+<td><code>margin_minimum</code></td>
+<td>0.15</td>
+<td>Gate C margin (≥)</td>
+</tr>
+<tr>
+<td><code>mtrap_sim_max</code></td>
+<td>0.60</td>
+<td>M-Trap discard (&gt;)</td>
+</tr>
+<tr>
+<td><code>anti_contam_warning</code> / <code>anti_contam_halt</code></td>
+<td>0.45 / 0.60</td>
+<td>guardrail 8 (also re-used by Layer 2 sanity)</td>
+</tr>
+<tr>
+<td><code>pool_var_warning</code></td>
+<td>0.05</td>
+<td>anti-pool variance increase warning</td>
+</tr>
+<tr>
+<td><code>yaw_max_degrees</code></td>
+<td>35.0</td>
+<td>MAR suspension</td>
+</tr>
+<tr>
+<td><code>ema_span</code></td>
+<td>5</td>
+<td>causal EMA (α = 1/3), pre-seeded</td>
+</tr>
+<tr>
+<td><code>upper_inner_lip</code> / <code>lower_inner_lip</code> / <code>mouth_width_pair</code></td>
+<td>(52,53,54) / (61,62,63) / (52,61)</td>
+<td>bench item 1</td>
+</tr>
+<tr>
+<td><code>insightface_min_det_score</code></td>
+<td>0.50</td>
+<td>guardrail 5</td>
+</tr>
+<tr>
+<td><code>yolo_min_conf</code></td>
+<td>0.30</td>
+<td>person gate</td>
+</tr>
+<tr>
+<td><code>silence_stride</code></td>
+<td>1</td>
+<td>optional efficiency rule (off)</td>
+</tr>
+<tr>
+<td><code>encode_max_ms</code> / <code>encode_overlap_ms</code></td>
+<td>60000 / 2000</td>
+<td>single-pass cap / chunk overlap</td>
+</tr>
+<tr>
+<td><code>gate_a_vad_min_coverage</code></td>
+<td>0.50</td>
+<td>bench item 5</td>
+</tr>
+<tr>
+<td><code>trackb_window_ms</code> / <code>trackb_min_spacing_ms</code></td>
+<td>2000 / 2000</td>
+<td>Track B window / dedupe</td>
+</tr>
+<tr>
+<td><code>click_overlap_max_frac</code></td>
+<td>0.20</td>
+<td>guardrail 1 proxy</td>
+</tr>
+<tr>
+<td><code>strong_ms</code> / <code>strong_ms_no_anti</code> / <code>marginal_ms</code></td>
+<td>45000 / 60000 / 20000</td>
+<td>quality states</td>
+</tr>
+<tr>
+<td><code>variance_high</code></td>
+<td>0.05</td>
+<td>STRONG variance ceiling</td>
+</tr>
+<tr>
+<td><code>CLICK_MATCH_MAX_GAP_MS</code> (enrollment.py)</td>
+<td>200</td>
+<td>click-to-frame match tolerance</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Layer 2 (<code>Layer2Params</code>)</strong> — architectural: <code>window_ms</code> 5000 · <code>hop_ms</code> 1000 · <code>block_ms</code> 1000 · <code>silero_skip_floor</code> 0.20 · <code>evidence_floor</code> 0.20 · <code>edge_fine_window_ms</code> 2000 · <code>edge_fine_hop_ms</code> 250 · <code>edge_scan_span_ms</code> 2000 · <code>edge_min_fine_window_ms</code> 1000 · <code>edge_max_trim_ms</code> 750. Calibration: <code>genuine_quantile</code> 0.10 · <code>impostor_safety_margin</code> 0.05 · clamps 0.45/0.75 · <code>theta_med_step</code> 0.15 · <code>theta_med_floor</code> 0.30 · <code>min_calibration_windows</code> 10 · fallbacks 0.60/0.40 · <code>no_anti_theta_floor</code> 0.55 · <code>margin_minimum</code> 0.15 (not calibrated). Diagnostics: contamination 0.45/0.60 · ratio 0.25/0.10 · drift 30000 ms / 0.10.</p>
+<p><strong>Layer 3 (<code>Layer3Params</code>)</strong> — <code>merge_gap_ms</code> 400 (operator-tunable via manifest, strongly discouraged) · <code>gap_dominance_guard</code> True.</p>
+<h1 id="appendix-b--manifest-operation-vocabulary">Appendix B — Manifest Operation Vocabulary</h1>
+<p><strong>Core (<code>session_manifest.Operation</code>):</strong> <code>batch_init</code> · <code>model_checksum</code> · <code>determinism_check</code> · <code>parameter_modified</code> · <code>enrollment_vector</code> · <code>enrollment_discard</code> · <code>calibration</code> · <code>video_gap</code> · <code>drift_notice</code> · <code>warning</code> · <code>blocking_halt</code> · <code>destructive_op</code> · <code>output_hash</code> · <code>worker_log_merged</code>.</p>
+<p><strong>Module-defined:</strong> Layer 0: <code>layer0_file</code>. Layer 1: <code>layer1_init</code>, <code>layer1_seed</code>, <code>layer1_video_scan</code>, <code>layer1_quality</code>, <code>layer1_freeze</code>. Layer 2: <code>layer2_init</code>, <code>layer2_block</code>, <code>layer2_edge_trim</code>, <code>layer2_file_summary</code>, <code>layer2_window_skipped</code>. Layer 3: <code>layer3_init</code>, <code>layer3_ovd_regions</code>, <code>layer3_nan_block</code>, <code>layer3_segment</code>, <code>layer3_file_summary</code>. Runner: <code>pipeline_complete</code> (terminal).</p>
+<p>Vector kinds (Layer 1 payloads): <code>seed</code>, <code>track_a_window</code>, <code>anti_track_b</code>, <code>anti_track_c</code>. Calibration kinds: <code>DERIVED</code>, <code>DERIVED_NO_ANTI</code>, <code>FALLBACK_DEFAULTS</code>. Tiers: <code>HIGH</code>, <code>MEDIUM</code>, <code>SUB_THRESHOLD</code>, <code>REJECT</code>, <code>SKIPPED_NONSPEECH</code>. End reasons: <code>plosive_expiry</code>, <code>interviewer_interjection</code>, <code>end_of_video</code>. Gap-decision reasons: <code>bridged</code>, <code>gap_too_long</code>, <code>overlap_in_gap</code>, <code>interviewer_evidence_in_gap</code>.</p>
+<h1 id="appendix-c--artifact-map-dependency-graph-and-pinned-stack">Appendix C — Artifact Map, Dependency Graph, and Pinned Stack</h1>
+<p><strong>Work directory after a run:</strong></p>
+<pre class="hljs"><code><div>&lt;work_dir&gt;/
+├── *.wav                      # Layer 0 full-file 16kHz extractions
+├── enroll/                    # Layer 1: per-window WAV + JSON sidecar (seed, track_a, anti_b/c)
+├── layer2/
+│   ├── worker_NNN.jsonl       # per-file worker logs (hashed at merge)
+│   └── layer2_output.json     # authoritative, hashed
+├── layer3/
+│   ├── worker_NNN.jsonl
+│   ├── clean/                 # FINAL OUTPUT: clean_NNN_start_end.wav + .json sidecars
+│   └── layer3_output.json     # hashed
+└── pipeline_output.json       # batch summary, hashed in pipeline_complete
+&lt;manifest&gt;.jsonl               # the hash-chained session manifest (single writer)
+&lt;model_store&gt;/                 # silero-vad/ · speechbrain-spkrec-ecapa-voxceleb/ ·
+                               # yolov8/ · insightface/ · pyannote-segmentation-3.0/ ·
+                               # expected_hashes.json (chmod 444)
+</div></code></pre>
+<p><strong>Pinned stack</strong> (mirrored by the gate's <code>PINNED_VERSIONS</code>; the gate halts on any mismatch): torch 2.1.2+cu121 · torchaudio 2.1.2+cu121 · torchvision 0.16.2+cu121 · numpy 1.26.4 · speechbrain 1.0.0 · pyannote.audio 3.1.1 · huggingface-hub 0.21.3 · ultralytics 8.1.47 · insightface 0.7.3 · onnxruntime-gpu 1.17.1 (CUDA-12 feed <strong>only</strong> — Gotchas §2) · onnx 1.15.0 · opencv-python-headless 4.9.0.80 · ffmpeg-python 0.2.0 · soundfile 0.12.1 · librosa 0.10.1 · scipy 1.12.0 · numba 0.59.1 · llvmlite 0.42.0 · lightning 2.1.4 · torchmetrics 1.3.1 · scikit-learn 1.4.1.post1 · scikit-image 0.22.0 · tqdm 4.66.2. Silero VAD is vendored, not pip-installed, pinned to commit <code>915dd3d639b8333a52e001af095f87c5b7f1e0ac</code> (commit, not tag — the upstream tag was observed to move).</p>
+<hr>
+<p><em>End of SPOVNOB_TECHNICAL_DEEP_DIVE.md v1.0 — 2026-06-12. Maintenance rule: this document is downstream of the code; any change to a constant, predicate, or schema named here must update this file in the same commit, and Part IX is the only section permitted to describe behavior the code does not yet have.</em></p>
+
+</body>
+</html>

@@ -75,6 +75,14 @@ scikit-image==0.22.0        # insightface dependency
 # ---- Utilities ------------------------------------------------------------------
 tqdm==4.66.2
 
+# ---- Operator tooling (NOT part of the inference stack) ---------------------------
+# click_ui.py only — the local clicking UI that writes session/clicks.json.
+# Outside the chain of custody: not in environment_gate's PINNED_VERSIONS
+# (the gate does not verify it), and clicks.json is re-validated from
+# scratch by Layer 1. Vendored into ./wheelhouse like everything else for
+# the air-gapped install (pulls werkzeug/jinja2/click/itsdangerous/blinker).
+flask==3.0.2
+
 # ---- Explicitly EXCLUDED ----------------------------------------------------------
 # h5py==3.10.0  -> no consumer remains: the WavLM embedding cache was removed from
 #                  the architecture (Audio_Diarization.md Rev 2+). Re-add only if a

@@ -18,9 +18,12 @@ Rules encoded here, exactly:
     +/- vad_tol of the frame PTS  ->  T_start = frame PTS.
   - ACTIVE -> PLOSIVE: smoothed MAR < MAR_off starts the plosive timer
     (deadline = pts + plosive_ms). Target DISAPPEARANCE while ACTIVE is
-    treated the same way, with the EMA frozen (review-flagged decision:
-    the document does not specify the absence case; the plosive-buffer
-    semantics are the conservative deterministic choice).
+    treated the same way; the EMA is decayed to None for the duration of
+    the absence (NOT frozen) so a stale pre-absence value cannot drive a
+    spurious resume/restart when the target returns — it reseeds to the
+    returning frame's raw MAR (review-flagged decision: the document does
+    not specify the absence case; the plosive-buffer semantics are the
+    conservative deterministic choice).
   - PLOSIVE -> ACTIVE: target's smoothed MAR rises above MAR_on before
     the deadline (buffer cancelled; window continues).
   - Early Stop Rule: while the buffer runs, if the interviewer is
@@ -34,7 +37,11 @@ Rules encoded here, exactly:
     the timer pauses while the head is turned (review-flagged).
   - End of video: an open window is finalized at the last frame PTS.
   - EMAs persist across windows (they smooth a physical signal, not
-    window state).
+    window state), but each decays to None while its subject is ABSENT
+    from frame and reseeds on return, so an absence gap never leaves a
+    stale value that could mis-fire a transition on re-entry. (Yaw
+    suspension still FREEZES the target EMA: a brief head-turn must not
+    lose the smoothed value, whereas a true disappearance must.)
 
 All PTS values are integer milliseconds (Rule 6).
 CUDA determinism dependencies: none.
@@ -145,16 +152,28 @@ class WindowMachine:
         emitted: Optional[CandidateWindow] = None
 
         # Interviewer EMA updates on every frame the interviewer is seen.
+        # When the interviewer is ABSENT the EMA decays to None so a stale
+        # pre-gap value cannot survive the absence and false-trigger the
+        # Early Stop Rule on re-entry; it reseeds to the returning frame's
+        # raw MAR. A present-but-MAR-unavailable frame is transient, not an
+        # absence, so the EMA is left untouched there.
         if obs.interviewer_present and obs.interviewer_mar is not None:
             self.interviewer_ema.update(obs.interviewer_mar)
+        elif not obs.interviewer_present:
+            self.interviewer_ema.value = None
 
-        # Target EMA: frozen while suspended or while the target is absent.
+        # Target EMA: FROZEN while suspended (a brief head-turn must not lose
+        # the smoothed value), but DECAYED to None while the target is ABSENT
+        # so a stale pre-gap value cannot drive a spurious start/resume on
+        # re-entry — it reseeds to the returning frame's raw MAR instead.
         if (
             obs.target_present
             and not obs.target_suspended
             and obs.target_mar is not None
         ):
             self.target_ema.update(obs.target_mar)
+        elif not obs.target_present:
+            self.target_ema.value = None
         ema = self.target_ema.value
 
         if self.state == PLOSIVE:
@@ -178,7 +197,15 @@ class WindowMachine:
                 obs.target_present
                 and ema is not None
                 and ema > params.mar_on
+                and obs.vad_speech
             ):
+                # Bench-corrected MAR (2026-06-12): the normalized outer-lip
+                # formula sits in a narrow band (~0.10 closed to ~0.25 open,
+                # resting ~0.13), so smoothed MAR alone cannot reliably tell a
+                # resting-but-open mouth during silence from actual speech.
+                # Silero VAD is therefore required alongside MAR > mar_on
+                # (0.15) to resume, so the plosive buffer expires through
+                # silence instead of immediately re-activating.
                 self.state = ACTIVE
                 self._accumulate(obs, ema)
             else:
@@ -189,7 +216,14 @@ class WindowMachine:
                 self._accumulate(obs, ema)   # frozen: wait for head return
             elif not obs.target_present or (
                 ema is not None and ema < params.mar_off
-            ):
+            ) or not obs.vad_speech:
+                # Bench-corrected MAR (2026-06-12): a relaxed/listening mouth
+                # rests around ~0.13, ABOVE mar_off (0.10), so MAR rarely
+                # falls below mar_off during ordinary silence (only fully
+                # pressed-shut lips reach ~0.00). Silero VAD is the primary
+                # close trigger so a window cannot span a non-speech segment
+                # while the lips happen to stay open; MAR < mar_off remains a
+                # secondary close condition.
                 self.state = PLOSIVE
                 self._deadline = obs.pts_ms + params.plosive_ms
                 self._accumulate(obs, ema)

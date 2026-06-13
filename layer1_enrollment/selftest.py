@@ -78,7 +78,10 @@ def _test_geometry() -> None:
         landmarks[index] = (float(point[0]), float(point[1]))
     for index, point in zip(P.lower_inner_lip, [(0, 12), (10, 12), (20, 12)]):
         landmarks[index] = (float(point[0]), float(point[1]))
-    # doc width pair (52, 61) -> distance 12 here -> MAR exactly 1.0
+    # bench-corrected width pair (52, 61) is disjoint from the lip-arc
+    # indices and must be placed explicitly: distance 12 -> MAR exactly 1.0
+    landmarks[P.mouth_width_pair[0]] = (-6.0, 6.0)
+    landmarks[P.mouth_width_pair[1]] = (6.0, 6.0)
     assert geometry.compute_mar(landmarks, P) == 1.0
     assert geometry.compute_mar(landmarks[:50], P) is None
     assert geometry.compute_mar([(5.0, 5.0)] * 106, P) is None  # degenerate
@@ -182,8 +185,10 @@ def _test_window_machine() -> None:
     assert windows[0].t_stop_ms == 5 * step + P.plosive_ms
 
     # Interviewer stats: visible-and-closed frames are counted for Gate A.
+    # (interviewer EMA must be strictly below mar_off=0.10 to count as
+    # closed; 0.05 sits in the bench-validated pressed-shut range.)
     machine = WindowMachine(P)
-    obs_g = [_obs(i * step, 0.9, int_present=True, int_mar=0.1)
+    obs_g = [_obs(i * step, 0.9, int_present=True, int_mar=0.05)
              for i in range(10)]
     _drive(machine, obs_g)
     tail = machine.finalize(90)

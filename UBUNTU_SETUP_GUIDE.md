@@ -150,7 +150,24 @@ ONNXRuntime needs to see the pip-bundled NVIDIA libraries:
 ```bash
 source /opt/spovnob/.venv/bin/activate
 NVLIB=$(python -c "import sysconfig;print(sysconfig.get_paths()['purelib'])")/nvidia
-export LD_LIBRARY_PATH="$NVLIB/cudnn/lib:$NVLIB/cublas/lib:$NVLIB/cuda_runtime/lib:${LD_LIBRARY_PATH:-}"
+TORCHLIB=$(python -c "import torch,os; print(os.path.join(os.path.dirname(torch.__file__), 'lib'))")
+export LD_LIBRARY_PATH="$NVLIB/cufft/lib:$NVLIB/cuda_runtime/lib:$NVLIB/cublas/lib:$TORCHLIB:${LD_LIBRARY_PATH:-}"
+```
+
+**Why four entries instead of the original cudnn/cublas/cuda_runtime:**
+This system runs CUDA 13.x (driver ≥ 580). The ORT 1.17.1 CUDA-12 build links
+`libcufft.so.11` (CUDA 12's cuFFT soname — CUDA 13 uses `.so.12`) and
+`libcudart.so.12`. The `nvidia-cufft-cu12` and `nvidia-cuda-runtime-cu12` pip
+packages supply these exact libraries; `nvidia-cublas-cu12` supplies the
+matching cuBLAS. The `torch/lib` path covers `libcublasLt.so.12` (from the
+PyTorch +cu121 bundle). On CUDA ≤ 12.x systems the original three-path export
+is sufficient; on CUDA 13.x the `cufft/lib` entry is mandatory.
+
+Required pip packages (already in requirements.txt or installed alongside):
+```bash
+pip install "nvidia-cufft-cu12==11.0.2.54" \
+            "nvidia-cuda-runtime-cu12==12.1.105" \
+            "nvidia-cublas-cu12==12.1.3.1"
 ```
 
 (The determinism variables `CUBLAS_WORKSPACE_CONFIG`, `HF_HUB_OFFLINE`,
@@ -194,6 +211,7 @@ and exits non-zero.
 | `hash_registry_missing` | freeze step skipped | run `--freeze-hashes` on the staging box |
 | `gpu_determinism_failure` | driver/library drift | verify driver ≥ 535, exact wheel pins; do not proceed |
 | `wrong_platform` / `wrong_python` | not Ubuntu / not 3.10 venv | use the §2 venv on the deployment box |
+| `ffmpeg_missing` | ffmpeg and/or ffprobe not on PATH | `sudo apt install ffmpeg` (§1), then re-run the gate |
 
 ---
 
@@ -205,3 +223,4 @@ and exits non-zero.
 - *2026-06-12 — Module 4 (layer3_contamination.py): no new dependencies. Uses the resident PyAnnote OVD pipeline (already vendored: pyannote-segmentation-3.0). Run (full chain gate → Layers 0-3): `python3 layer3_contamination.py --run --videos <files...> --clicks clicks.json --work-dir <dir> --model-store <store> --manifest <jsonl>`. Outputs: final verified clean segment WAVs + sidecars under `<work-dir>/layer3/clean/`, NaN exclusion log in the manifest, and `<work-dir>/layer3/layer3_output.json` (canonical JSON, SHA-256 in manifest).*
 - *2026-06-12 — WavLM/HuBERT removal: behavioral analysis deferred to a separate design phase. `transformers` dropped from requirements.txt; `facebook/hubert-large-ll60k` dropped from the model store (§4) — **five** resident models. If you already vendored HuBERT, delete `model_store/hubert-large-ll60k/` and re-run `--freeze-hashes` (the gate rejects unexpected files).*
 - *2026-06-12 — Module 5 (pipeline_runner.py): no new dependencies. **This is the production entrypoint** for full batch runs: `python3 pipeline_runner.py --run --videos <files...> --clicks clicks.json --work-dir <dir> --model-store <store> --manifest <jsonl> [--operator <id>]`. Chains gate → Layers 0-3, writes `<work-dir>/pipeline_output.json` (canonical, SHA-256 in manifest), re-verifies the full manifest hash chain from disk after close, and prints per-stage wall timings (console only — never in payloads).*
+- *2026-06-12 — Pre-deployment hardening audit: no new dependencies. (1) The gate now verifies **ffmpeg AND ffprobe** on PATH as step 2 (new halt reason `ffmpeg_missing` — previously a missing binary failed mid-batch as an unrecorded FileNotFoundError). (2) Layer 2 calibration now handles a seed-only (single-window) enrollment pool by routing to `FALLBACK_DEFAULTS` instead of crashing in the leave-one-out scorer. (3) Operator-click face-match failures (`no_face_at_speaking_click` / `no_face_at_anti_click`) now write the re-click WARNING to the manifest before raising, like every other re-click path.*
