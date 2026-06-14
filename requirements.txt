@@ -2,8 +2,11 @@
 # SPOVNOB — Forensic Audio Diarization Pipeline
 # Pinned dependency stack (Revision 1 — 2026-06-11)
 #
-# Target deployment: Ubuntu 22.04 LTS · Python 3.10.x · CUDA 12.1
-#                    NVIDIA RTX 6000 Ada (48 GB VRAM)
+# Target deployment: Ubuntu 22.04 LTS · Python 3.10.x · NVIDIA RTX 6000 Ada (48 GB)
+#                    Host: driver 580 / CUDA 13.x runtime. The wheels below are
+#                    PyTorch +cu121 (CUDA 12.1 runtime, bundled) — they run on the
+#                    13.x driver; see UBUNTU_SETUP_GUIDE.md §5 for the cuFFT
+#                    LD_LIBRARY_PATH entry that the 13.x host makes mandatory.
 # Authored on macOS; nothing in this file or the pipeline may assume macOS.
 #
 # Install procedure (online staging box -> air-gapped server):

@@ -2,8 +2,8 @@
 
 **Maintained automatically: this file is updated whenever a new dependency, model, or system requirement is introduced. It always reflects the current complete state of what Ubuntu needs.**
 
-**Last updated:** 2026-06-12 (Module 0b — environment_gate.py)
-**Target:** Ubuntu 22.04 LTS · RTX 6000 Ada (48 GB) · Python 3.10 · CUDA 12.1
+**Last updated:** 2026-06-15 (CUDA/driver reconciliation — host runs 13.x)
+**Target:** Ubuntu 22.04 LTS · RTX 6000 Ada (48 GB) · Python 3.10 · driver 580 / **CUDA 13.x** host runtime · PyTorch `+cu121` wheels (CUDA 12.1 runtime, bundled — they run fine on the 13.x driver; see §5 for the extra cuFFT path this requires)
 
 Recommended install root used throughout: `/opt/spovnob/`
 
@@ -30,11 +30,11 @@ sudo apt install -y build-essential git curl unzip \
 Notes:
 - **Ubuntu 22.04 ships Python 3.10 natively** — no PPA needed. Verify: `python3.10 --version` → `3.10.x`.
 - **ffmpeg**: jammy repo version (4.4.x) is fine; the apt package also installs `ffprobe`, which Layer 0 requires for PTS probing. Record the exact version once installed: `ffmpeg -version | head -1` → goes into the session manifest at first batch init.
-- **NVIDIA driver**: 535-series or newer (anything ≥ 530 supports the CUDA 12.1 runtime):
+- **NVIDIA driver**: this box runs the **580-series** driver (CUDA 13.x host runtime). The `+cu121` wheels need a driver ≥ 535 *at minimum*, but 580 is what is installed here — and CUDA 13.x is precisely why §5 adds the `cufft/lib` entry to `LD_LIBRARY_PATH` (ORT 1.17.1's CUDA-12 build links `libcufft.so.11`, which CUDA 13 no longer ships system-wide):
   ```bash
-  sudo apt install -y nvidia-driver-535-server
+  sudo apt install -y nvidia-driver-580-server
   sudo reboot
-  nvidia-smi    # must show the RTX 6000 Ada and driver >= 535
+  nvidia-smi    # must show the RTX 6000 Ada and driver >= 580 (CUDA 13.x)
   ```
 - **CUDA toolkit: NOT required.** The PyTorch `+cu121` wheels bundle the CUDA 12.1 runtime, cuBLAS, and cuDNN 8.9 as pip packages (`nvidia-*-cu12`). Do not apt-install `nvidia-cuda-toolkit` — it would add a second, unpinned CUDA to the box.
 - **cuDNN for ONNXRuntime**: also satisfied by the pip-bundled `nvidia-cudnn-cu12`; the env exports in §5 make ORT find it. No system cuDNN install.
@@ -163,7 +163,11 @@ matching cuBLAS. The `torch/lib` path covers `libcublasLt.so.12` (from the
 PyTorch +cu121 bundle). On CUDA ≤ 12.x systems the original three-path export
 is sufficient; on CUDA 13.x the `cufft/lib` entry is mandatory.
 
-Required pip packages (already in requirements.txt or installed alongside):
+Required pip packages: these are **transitive dependencies of `torch==2.1.2+cu121`**
+(its bundled CUDA libs) at exactly these versions, so `pip download -r requirements.txt`
+already vendors them into `wheelhouse/` and they install with the main pip step — no
+separate line item in requirements.txt. The explicit install below is only a
+belt-and-suspenders check if you suspect they were skipped:
 ```bash
 pip install "nvidia-cufft-cu12==11.0.2.54" \
             "nvidia-cuda-runtime-cu12==12.1.105" \
@@ -224,3 +228,4 @@ and exits non-zero.
 - *2026-06-12 — WavLM/HuBERT removal: behavioral analysis deferred to a separate design phase. `transformers` dropped from requirements.txt; `facebook/hubert-large-ll60k` dropped from the model store (§4) — **five** resident models. If you already vendored HuBERT, delete `model_store/hubert-large-ll60k/` and re-run `--freeze-hashes` (the gate rejects unexpected files).*
 - *2026-06-12 — Module 5 (pipeline_runner.py): no new dependencies. **This is the production entrypoint** for full batch runs: `python3 pipeline_runner.py --run --videos <files...> --clicks clicks.json --work-dir <dir> --model-store <store> --manifest <jsonl> [--operator <id>]`. Chains gate → Layers 0-3, writes `<work-dir>/pipeline_output.json` (canonical, SHA-256 in manifest), re-verifies the full manifest hash chain from disk after close, and prints per-stage wall timings (console only — never in payloads).*
 - *2026-06-12 — Pre-deployment hardening audit: no new dependencies. (1) The gate now verifies **ffmpeg AND ffprobe** on PATH as step 2 (new halt reason `ffmpeg_missing` — previously a missing binary failed mid-batch as an unrecorded FileNotFoundError). (2) Layer 2 calibration now handles a seed-only (single-window) enrollment pool by routing to `FALLBACK_DEFAULTS` instead of crashing in the leave-one-out scorer. (3) Operator-click face-match failures (`no_face_at_speaking_click` / `no_face_at_anti_click`) now write the re-click WARNING to the manifest before raising, like every other re-click path.*
+- *2026-06-15 — CUDA/driver reconciliation (no dependency or pin changes): the deployment box runs the **580-series driver / CUDA 13.x host runtime**, not the 535/CUDA-12.1 stated in the original header. Header, §1, and the requirements.txt header now reflect this; §5's `cufft/lib` `LD_LIBRARY_PATH` entry (already present) is **mandatory** on this host because ORT 1.17.1's CUDA-12 build links `libcufft.so.11`, which CUDA 13 no longer ships system-wide. The PyTorch wheels are unchanged (`+cu121`); they run on the 13.x driver. The three `nvidia-*-cu12` libs in §5 are torch's transitive deps (auto-vendored), not separate requirements.txt entries — wording clarified.*
