@@ -10,6 +10,9 @@ __pycache__/
 *.pyc
 *.pyo
 
+# --- Virtualenv (rebuilt per box from requirements.txt; NEVER in git) ----------
+.venv/
+
 # --- Runtime artifacts (manifests, logs, session outputs) -----------------------
 manifest/
 logs/

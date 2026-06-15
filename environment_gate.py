@@ -370,10 +370,16 @@ def enforce_torch_determinism(manifest: SessionManifest) -> None:
     )
 
 
-def check_onnxruntime_cuda(manifest: SessionManifest) -> None:
-    """FLAG 2 guard: the CUDAExecutionProvider must actually be available.
-    A CUDA-11.8 wheel on this CUDA-12.1 box would silently fall back to CPU;
-    silent fallback is forbidden."""
+def check_onnxruntime_cuda(manifest: SessionManifest, store: Path) -> None:
+    """FLAG 2 guard: the CUDAExecutionProvider must actually LOAD, not merely
+    be registered. A CUDA-11.8 wheel on this CUDA-12/13 box keeps
+    CUDAExecutionProvider in ``get_available_providers()`` (it is compiled in)
+    yet fails to load ``libonnxruntime_providers_cuda.so`` at session creation
+    (missing ``libcublasLt.so.11`` etc.) and SILENTLY falls back to CPU. The
+    registration check alone passes in that state — so we additionally
+    instantiate a real CUDA InferenceSession on a vendored buffalo_l model and
+    assert the session's active provider is CUDA. This is the only check that
+    catches the silent-CPU-fallback failure mode."""
     import onnxruntime as ort
 
     providers = ort.get_available_providers()
@@ -382,10 +388,39 @@ def check_onnxruntime_cuda(manifest: SessionManifest) -> None:
               {"available_providers": providers,
                "hint": "onnxruntime-gpu wheel must come from the CUDA-12 feed "
                        "(see requirements.txt FLAG 2)"})
+
+    # Provider is registered — now prove it actually loads. InsightFace loads
+    # these exact ONNX files; det_10g is the detection model it always uses.
+    probe = store / "insightface" / "models" / "buffalo_l" / "det_10g.onnx"
+    if not probe.is_file():
+        _halt(manifest, "onnxruntime_cuda_probe_missing", {"path": str(probe)})
+    try:
+        sess = ort.InferenceSession(
+            str(probe), providers=["CUDAExecutionProvider"])
+        active = sess.get_providers()
+    except Exception as exc:  # session build raised outright
+        _halt(manifest, "onnxruntime_cuda_provider_inactive",
+              {"error": repr(exc), "registered_providers": providers,
+               "hint": "CUDAExecutionProvider registered but failed to build a "
+                       "session — wrong-CUDA onnxruntime-gpu wheel and/or "
+                       "LD_LIBRARY_PATH missing the cu12 libs (cufft/cudart). "
+                       "See UBUNTU_SETUP_GUIDE §5 and Gotchas #2."})
+    if not active or active[0] != "CUDAExecutionProvider":
+        # The exact silent-fallback state: provider library could not load,
+        # so ORT dropped to CPU. Forbidden.
+        _halt(manifest, "onnxruntime_cuda_provider_inactive",
+              {"active_providers": active, "registered_providers": providers,
+               "hint": "CUDAExecutionProvider registered but a real session "
+                       "fell back to CPU — wrong-CUDA onnxruntime-gpu wheel "
+                       "and/or LD_LIBRARY_PATH missing the cu12 libs "
+                       "(cufft/cudart). See UBUNTU_SETUP_GUIDE §5 and "
+                       "Gotchas #2."})
     manifest.append(
         Operation.DETERMINISM_CHECK,
         {"check": "onnxruntime_cuda", "result": "PASS",
-         "onnxruntime": ort.__version__, "providers": providers},
+         "onnxruntime": ort.__version__, "registered_providers": providers,
+         "active_session_provider": active[0],
+         "probe_model": str(probe.relative_to(store))},
     )
 
 
@@ -534,7 +569,7 @@ def run_gate(
     check_forbidden_imports(manifest)
     verify_model_store(manifest, store)
     enforce_torch_determinism(manifest)
-    check_onnxruntime_cuda(manifest)
+    check_onnxruntime_cuda(manifest, store)
     gpu_determinism_selftest(manifest)
     if load_models:
         return load_resident_models(manifest, store)
