@@ -1,10 +1,12 @@
 # SPOVNOB — Technical Deep Dive
 
-**Document:** `SPOVNOB_TECHNICAL_DEEP_DIVE.md` · v1.1 (2026-06-12 bench corrections)
-**Date:** 2026-06-12
-**Ground truth:** the Python modules at repository head (`766462b` baseline + 2026-06-12 bench corrections to `params.py`, `window_machine.py`, `enrollment.py`; Modules 0a–5, code-complete) and `Audio_Diarization.md` Revision 3.1.
+**Document:** `SPOVNOB_TECHNICAL_DEEP_DIVE.md` · v1.2 (2026-06-16 operational layer + FLAG 2 hardening)
+**Date:** 2026-06-16
+**Ground truth:** the Python modules at repository head (`c82c2b7`; Modules 0a–5, code-complete) and `Audio_Diarization.md` Revision 3.1.
 
 > **v1.1 changes (2026-06-12 bench session):** MAR landmark indices corrected throughout (§5.4, Part IX item 1, Appendix A); MAR hysteresis thresholds recalibrated to 0.15/0.10 (was 0.55/0.40); Silero VAD gate added to ACTIVE↔PLOSIVE transitions in §5.5 FSM table and rules; Track C anti-click guardrail corrected to use `MAR_on` not `MAR_off` (§5.8). All changes bench-validated on NT-clip27; outcome +3 enrollment windows, +7 250 ms clean audio. See Gotchas §7 for full diagnosis.
+>
+> **v1.2 changes (2026-06-16 session):** FLAG 2 check hardened — `check_onnxruntime_cuda` now instantiates a real `InferenceSession` on `buffalo_l/det_10g.onnx` and asserts `active[0] == 'CUDAExecutionProvider'`, catching the silent-CPU-fallback failure mode that `get_available_providers()` alone cannot detect (§2.6, gate Step 7). New halt codes: `onnxruntime_cuda_probe_missing`, `onnxruntime_cuda_provider_inactive`. New manifest payload fields: `active_session_provider`, `probe_model`. Function signature change: `check_onnxruntime_cuda(manifest, store)`. Operational layer (four new components) documented: `env.sh` LD_LIBRARY_PATH bridge for CUDA 13.x host (§1.4, §8.0), `run.sh` one-command batch runner (§8.0), `click_ui.py` browser-based operator clicking interface (§5.2, §8.0), `audit_visualizer.py` self-contained forensic HTML dashboard (§8.0). Appendix C work-directory layout updated.
 **Authority order:** where any narrative document (including this one) disagrees with the code, **the code is authoritative**. Every divergence between the master specification and the implementation found during the audit for this document is recorded explicitly, most of it in Part IX.
 **Audience:** forensic auditors, reviewing engineers, and future maintainers. The document assumes fluency in Python and basic signal processing, and zero prior exposure to this codebase.
 
@@ -21,7 +23,7 @@
 - **Part V — Layer 1: Visual-Anchored Enrollment** (`layer1_enrollment/`)
 - **Part VI — Layer 2: Calibrated Sliding-Window Tracking** (`layer2_tracker.py`)
 - **Part VII — Layer 3: Overlap Exclusion and Final Output** (`layer3_contamination.py`)
-- **Part VIII — The Pipeline Runner and the End-to-End Audit Story** (`pipeline_runner.py`)
+- **Part VIII — The Pipeline Runner and the End-to-End Audit Story** (`pipeline_runner.py`, `env.sh`, `run.sh`, `click_ui.py`, `audit_visualizer.py`)
 - **Part IX — Bench-Validation Register and Known Limitations**
 - **Appendix A — Complete Parameter Reference**
 - **Appendix B — Manifest Operation Vocabulary**
@@ -64,7 +66,9 @@ What remains is the doctrine: **frozen, widely replicated encoders, surrounded b
 
 ## 1.4 Execution environment and session topology
 
-**Production hardware (fixed):** NVIDIA RTX 6000 Ada (48 GB VRAM) · 44 cores / 88 threads · 512 GB DDR5 · 2 TB NVMe · Ubuntu 22.04 LTS · Python 3.10.x · CUDA 12.1 · PyTorch-only stack (sole sanctioned exception: InsightFace's internal ONNXRuntime, §2.6).
+**Production hardware (fixed):** NVIDIA RTX 6000 Ada (48 GB VRAM) · 44 cores / 88 threads · 512 GB DDR5 · 2 TB NVMe · Ubuntu 22.04 LTS · Python 3.10.x · PyTorch-only stack (sole sanctioned exception: InsightFace's internal ONNXRuntime, §2.6).
+
+**CUDA version topology.** The host driver is 580 (CUDA 13.x). PyTorch wheels are `+cu121` (CUDA toolkit 12.1). ONNXRuntime is the CUDA-12 build from the Microsoft feed. This is intentional: the CUDA toolkit shipped with a `+cu121` wheel is self-contained inside the `.venv`; the host driver (≥ the toolkit's minimum) is backward-compatible. The runtime dependency that does *not* come bundled in the standard wheels is `libcufft.so.12` / `libcuda_runtime.so.12` / `libcublasLt.so.12`, which ONNXRuntime's CUDA provider needs from the filesystem. These are supplied by `nvidia-cufft-cu12`, `nvidia-cuda-runtime-cu12`, and `nvidia-cublas-cu12` pip packages (explicitly listed in `requirements.txt`). **Before any gate / pipeline / UI invocation, `source env.sh` must be run from the project directory.** `env.sh` activates the pinned `.venv` and builds `LD_LIBRARY_PATH` by locating these packages' `.so` directories under the venv's site-packages and prepending them, plus the torch lib directory. Without `env.sh`, ORT's CUDA provider fails to load its shared library and the gate's FLAG 2 check (§2.6) catches the fallback.
 
 **Resident Model Policy.** All five models — Silero VAD (CPU), ECAPA-TDNN, YOLOv8m, InsightFace `buffalo_l`, PyAnnote segmentation-3.0 OVD — are loaded **once** at batch start by the environment gate and held resident for the entire batch. There is no `torch.cuda.empty_cache()` anywhere in the codebase, and no load/unload state machine between files; combined footprint is far under the 48 GB available, and unload/reload cycles are both wasted time and a reproducibility risk surface.
 
@@ -150,14 +154,14 @@ The workload runs **twice from scratch**; the two SHA-256s must match exactly or
 | 4 | `check_forbidden_imports` | `pyannote.audio.pipelines.speaker_verification` present in `sys.modules` |
 | 5 | `verify_model_store` | any weight file missing, unexpected, or hash-mismatched |
 | 6 | `enforce_torch_determinism` | CUDA version ≠ 12.1; CUDA unavailable |
-| 7 | `check_onnxruntime_cuda` | `CUDAExecutionProvider` not in available providers |
+| 7 | `check_onnxruntime_cuda(manifest, store)` | `CUDAExecutionProvider` not in `get_available_providers()` (`onnxruntime_cuda_provider_missing`); probe model `buffalo_l/det_10g.onnx` absent from store (`onnxruntime_cuda_probe_missing`); real `InferenceSession` on the probe model fell back to CPU or raised on construction (`onnxruntime_cuda_provider_inactive`) |
 | 8 | `gpu_determinism_selftest` | the two workload hashes differ |
 | 9 | `load_resident_models` | any loader failure |
 
 Three of these encode lessons already validated in practice:
 
 - **Step 4 (FLAG 1).** PyAnnote's SpeechBrain speaker-verification wrapper imports the `speechbrain.pretrained` module that SpeechBrain 1.x removed (pyannote issues #1661/#1677). SPOVNOB never uses that code path — Layer 3 uses `OverlappedSpeechDetection` only — so the broken import is guarded by policy rather than papered over by upgrading into an unpinned dependency set. Scope, stated precisely: the check runs *before* the resident loader, and pyannote's own package `__init__` later pulls the module into `sys.modules` transitively (wrapped in pyannote's optional-backend `try/except`, never instantiated by SPOVNOB) — so post-load presence is expected, and what the gate actually enforces is the realistic violation vector: a *direct* import by SPOVNOB code.
-- **Step 7 (FLAG 2).** `onnxruntime-gpu==1.17.1` exists under the *same version number* on the default PyPI index built for CUDA 11.8 and on the Microsoft CUDA-12 feed built for CUDA 12.x. On this CUDA 12.1 box, the wrong wheel doesn't crash — InsightFace **silently falls back to CPU**, changing both performance and, potentially, numerics. The gate refuses to start unless the CUDA provider is actually live. This exact failure was reproduced during the WSL2 dry run (`Ubuntu_Setup_Gotchas.md` §2: `libcublasLt.so.11 not found` → CPU fallback), which is the strongest possible argument for the gate's existence. The related runtime prerequisite — PyTorch `+cu121` wheels bundle their own cuDNN/cuBLAS inside the `torch` package, and ONNXRuntime needs them on `LD_LIBRARY_PATH` — is a deployment step (Gotchas §1), and the gate is what catches it when forgotten.
+- **Step 7 (FLAG 2).** `onnxruntime-gpu==1.17.1` exists under the *same version number* on the default PyPI index built for CUDA 11.8 and on the Microsoft CUDA-12 feed built for CUDA 12.x. On this CUDA-13 host with `+cu121` wheels, the wrong (CUDA 11.8) wheel doesn't crash at import — InsightFace **silently falls back to CPU** when the CUDA provider's shared library fails to load. The insidious part: `ort.get_available_providers()` *still returns* `CUDAExecutionProvider` in that state, because "registered" and "loadable" are different things — the provider is compiled into the wheel, but its runtime `.so` (`libonnxruntime_providers_cuda.so`) cannot resolve `libcublasLt.so.11` (CUDA 11.8 library, absent on a CUDA 12+ box). An `available_providers()` check alone passes while the model silently runs on CPU. The hardened check (v1.2) therefore goes further: it instantiates a real `ort.InferenceSession` on `buffalo_l/det_10g.onnx` (the exact model InsightFace uses, already in the vendored store), requests `["CUDAExecutionProvider"]`, and asserts `session.get_providers()[0] == "CUDAExecutionProvider"`. If the `.so` failed to load, ORT drops to CPU and `get_providers()` returns `['CPUExecutionProvider']` — caught by `onnxruntime_cuda_provider_inactive`. If the probe model is missing from the store, caught by `onnxruntime_cuda_probe_missing`. On success the manifest records `active_session_provider` and `probe_model`. This exact failure was reproduced during the bench session (`Ubuntu_Setup_Gotchas.md` §2: `libcublasLt.so.11 not found` → CPU fallback, the old check passed, the new check catches it), which is the strongest possible argument for the hardened check's existence. The related runtime prerequisite — `LD_LIBRARY_PATH` must include the `nvidia-cufft-cu12` / `nvidia-cuda-runtime-cu12` / `nvidia-cublas-cu12` site-packages directories — is what `env.sh` sets (§1.4, §8.0); the gate is what catches it when `env.sh` is forgotten.
 - **Steps 5 & 9 (Model Vendoring Mandate).** On the staging box, `freeze_model_hashes()` runs **once**: it refuses to freeze if any of the five model directories is missing or empty, hashes every regular file under the store (sorted walk; the registry file itself excluded), writes `expected_hashes.json` as canonical JSON, and `chmod 444`s it — re-freezing requires a deliberate manual delete (Gotchas §4; intentional friction). On the air-gapped box, `verify_model_store()` re-hashes everything and computes a three-way set difference: `missing`, `unexpected`, `mismatched`. **`unexpected` is load-bearing**: a smuggled extra file inside a model directory halts the gate even though no expected file changed — the store's contents are closed-world. Every verified file gets its own `model_checksum` manifest entry. Loading is local-only by construction: Silero via `torch.jit.load` of the vendored snapshot (commit-pinned to `915dd3d639b8333a52e001af095f87c5b7f1e0ac` — pinned to a commit, not a tag, because the upstream `v4.0` tag was observed to move); ECAPA via `EncoderClassifier.from_hparams(source=<store dir>, savedir=<same dir>)`; YOLO from the local `yolov8m.pt`; InsightFace with `root=<store>` and `providers=["CUDAExecutionProvider"]` only; PyAnnote `Model.from_pretrained(<local pytorch_model.bin>)` wrapped in `OverlappedSpeechDetection` and instantiated with the pinned hyperparameters `{"min_duration_on": 0.0, "min_duration_off": 0.0}` (§7.2). One open hardening item from the dry run — SpeechBrain's loader can fall back to the global HuggingFace cache for auxiliary files (e.g., `label_encoder.txt`) if the vendored directory is incomplete, and that cache is *outside* the hash registry's coverage — is recorded in Part IX.
 
 ## 2.7 The time doctrine: three coordinate frames
@@ -316,6 +320,8 @@ The clicks file is JSON:
 ```
 
 `anti_click` (Track C) is optional by design. `file_index`/`pts_ms` are integer-validated at parse; both clicks must target the **first video** or the run halts (`speaking_click_not_on_first_video`) — anchors propagate forward, never backward. Validation failures raise `Layer1ReclickError` *after* a `reclick_required` warning entry with the machine-readable reason — the operator feedback loop is itself part of the record. Because the pipeline is offline, the doctrine encourages the operator to pre-review the video and click inside the **longest clean speaking stretch** available: a 20–30 s verified seed is materially better than a minimal one, because `E_seed` is the reference for Gate B and the M-Trap (§5.7).
+
+**`click_ui.py` — the operator clicking interface.** Rather than constructing `clicks.json` by hand, the operator uses this local Flask-based browser tool. It scrubs the first video frame-by-frame and overlays the exact face detections, MAR values, and Silero VAD state the pipeline itself will compute (parity contract: it imports and calls production functions from `vision`, `layer0_preprocessor`, and `enrollment` directly — no re-implementations). Guardrails 1–3 and the anti-click checks fire at click time in the browser, before the operator finishes. A pre-scan cache keyed on the video SHA-256, model store digest, and full `EnrollmentParams` means warm starts need no models and no GPU (~2 s startup). The tool is **outside the audit chain**: it writes no manifest entries; its output `clicks.json` is re-validated from scratch by `layer1_enrollment.load_clicks`. See §8.0 for invocation details.
 
 ## 5.3 The vision stack
 
@@ -555,7 +561,54 @@ It consumes only **already-computed Layer 2 scores** (the full block map that `F
 
 ---
 
-# Part VIII — The Pipeline Runner and the End-to-End Audit Story (`pipeline_runner.py`)
+# Part VIII — The Pipeline Runner and the End-to-End Audit Story (`pipeline_runner.py`, `env.sh`, `run.sh`, `click_ui.py`, `audit_visualizer.py`)
+
+## 8.0 The operational layer
+
+Four components sit between a raw batch of videos and a complete run. None of them is part of the deterministic evidence chain (all decisions are made inside Modules 0a–5), but they are part of the deployment and therefore need to be understood by anyone running or maintaining the system.
+
+**`env.sh` — runtime environment setup.**
+Must be `source`d (not executed) from the project root before any gate, pipeline, UI, or visualizer invocation:
+
+```bash
+source env.sh
+```
+
+What it does, in order: (1) activates the pinned `.venv`; (2) locates the `nvidia` package tree inside `.venv/lib/.../site-packages/nvidia/` and prepends `cufft/lib`, `cuda_runtime/lib`, and `cublas/lib` to `LD_LIBRARY_PATH`; (3) prepends the `torch/lib` directory; (4) exports `SPOVNOB_MODEL_STORE=/home/user1/model_store`. The library prepend is what lets ONNXRuntime's CUDA provider resolve `libcufft.so.12` and `libcublasLt.so.12` on a system where these are *not* on the default `ld.so` search path. Without it, the CUDA provider silently falls back to CPU and FLAG 2 fires (§2.6). `env.sh` is idempotent: sourcing it twice in a session has no harmful effect.
+
+**`run.sh` — one-command batch runner.**
+
+```bash
+./run.sh <videos_dir> [batch_name]
+```
+
+`videos_dir` is the directory containing the batch's `.mp4 / .mov / .mkv / .avi / .webm` files. `batch_name` is optional; if omitted, `batch_<YYYYMMDD_HHMMSS>` is generated. `run.sh` sources `env.sh` itself, so the operator does not need to source it separately. Execution sequence:
+
+1. Resolves `videos_dir` to an absolute path *before* `cd`-ing into the project directory — so relative paths like `./my_clips` work from any caller CWD.
+2. Collects all video files with `find -L` (follows symlinks) sorted lexicographically — this is the canonical order; `[0]` (the first alphabetically) is the clicking target and must contain the target speaker.
+3. **Click reuse:** if `session/<batch>/clicks.json` already exists, it is used directly (no UI). If not, `click_ui.py` is launched on `VIDEOS[0]` in the background and the script polls for `clicks.json` export (2 s interval). Once captured, the operator is prompted to press Enter or Ctrl-C to abort.
+4. `pipeline_runner.py --run` with the full video list, clicks path, work dir, manifest path, model store, and operator identity.
+5. `audit_visualizer.py` over the completed manifest, writing `session/<batch>_audit.html`.
+6. Prints final paths: clean audio directory, `pipeline_output.json`, and the dashboard HTML.
+
+Non-interactive runs (piped stdin / CI): the Enter prompt uses `read ... || true`, so EOF is tolerated and the pipeline continues automatically after clicks are exported.
+
+**`click_ui.py` — browser-based operator clicking interface.**
+See §5.2 for the full description of the parity contract and guardrails enforced. Invocation:
+
+```bash
+python3 click_ui.py <first_video> --model-store /home/user1/model_store \
+    --work-dir session/<batch> [--port 5050] [--cpu] [--rescan] [--no-browser]
+```
+
+On first run, it performs a startup scan (audio extraction → Silero → YOLO/InsightFace over every frame → display JPEG generation) that can take 1–3 minutes per video; subsequent warm-starts complete in ~2 s. The operator uses the browser at `http://localhost:5050` to scrub frames, see live face/MAR/VAD overlays, register a speaking click and an optional anti-click, and export `clicks.json`. The tool writes its pre-scan cache to `session/<batch>/ui_cache/` and its own startup log to `session/<batch>/click_ui.log`.
+
+**`audit_visualizer.py` — self-contained forensic HTML dashboard.**
+A read-only tool that imports *nothing* from the SPOVNOB pipeline (no `environment_gate`, no torch, no models). It reads the completed `*.manifest.jsonl` and optionally the extracted `.wav` files, verifies the full hash chain, and emits one self-contained HTML file with an interactive, zoomable timeline showing — on a single global session clock — Silero VAD, Layer 2 per-block `S_target`/`S_interviewer` scores and tiers, PyAnnote overlap regions, and the final Layer 3 CLEAN / NaN output blocks. Hover tooltips give plain-English verdicts reconstructed from the recorded numbers. A broken chain paints a large red banner across the report. The report is designed to run on an analyst's laptop with no dependencies, against a manifest copied off the production box.
+
+```bash
+python3 audit_visualizer.py <manifest.jsonl> --audio session/<batch>/ --out session/<batch>_audit.html
+```
 
 ## 8.1 The chain, and the closing verification
 
@@ -685,21 +738,26 @@ Vector kinds (Layer 1 payloads): `seed`, `track_a_window`, `anti_track_b`, `anti
 
 # Appendix C — Artifact Map, Dependency Graph, and Pinned Stack
 
-**Work directory after a run:**
+**Work directory after a run** (`run.sh` creates `session/<batch>/` as the work dir and `session/<batch>.manifest.jsonl` as the manifest):
 
 ```
-<work_dir>/
-├── *.wav                      # Layer 0 full-file 16kHz extractions
-├── enroll/                    # Layer 1: per-window WAV + JSON sidecar (seed, track_a, anti_b/c)
-├── layer2/
-│   ├── worker_NNN.jsonl       # per-file worker logs (hashed at merge)
-│   └── layer2_output.json     # authoritative, hashed
-├── layer3/
-│   ├── worker_NNN.jsonl
-│   ├── clean/                 # FINAL OUTPUT: clean_NNN_start_end.wav + .json sidecars
-│   └── layer3_output.json     # hashed
-└── pipeline_output.json       # batch summary, hashed in pipeline_complete
-<manifest>.jsonl               # the hash-chained session manifest (single writer)
+session/
+├── <batch>/                   # work dir (--work-dir argument to pipeline_runner.py)
+│   ├── clicks.json            # operator click coordinates (written by click_ui.py or by hand)
+│   ├── click_ui.log           # click_ui.py stdout/stderr (if launched by run.sh)
+│   ├── ui_cache/              # click_ui.py pre-scan cache keyed on video SHA-256 + params
+│   ├── *.wav                  # Layer 0 full-file 16kHz extractions
+│   ├── enroll/                # Layer 1: per-window WAV + JSON sidecar (seed, track_a, anti_b/c)
+│   ├── layer2/
+│   │   ├── worker_NNN.jsonl   # per-file worker logs (hashed at merge)
+│   │   └── layer2_output.json # authoritative, hashed
+│   ├── layer3/
+│   │   ├── worker_NNN.jsonl
+│   │   ├── clean/             # FINAL OUTPUT: clean_NNN_start_end.wav + .json sidecars
+│   │   └── layer3_output.json # hashed
+│   └── pipeline_output.json   # batch summary, hashed in pipeline_complete
+├── <batch>.manifest.jsonl     # the hash-chained session manifest (single writer)
+└── <batch>_audit.html         # self-contained forensic HTML dashboard (audit_visualizer.py)
 <model_store>/                 # silero-vad/ · speechbrain-spkrec-ecapa-voxceleb/ ·
                                # yolov8/ · insightface/ · pyannote-segmentation-3.0/ ·
                                # expected_hashes.json (chmod 444)
@@ -709,4 +767,4 @@ Vector kinds (Layer 1 payloads): `seed`, `track_a_window`, `anti_track_b`, `anti
 
 ---
 
-*End of SPOVNOB_TECHNICAL_DEEP_DIVE.md v1.0 — 2026-06-12. Maintenance rule: this document is downstream of the code; any change to a constant, predicate, or schema named here must update this file in the same commit, and Part IX is the only section permitted to describe behavior the code does not yet have.*
+*End of SPOVNOB_TECHNICAL_DEEP_DIVE.md v1.2 — 2026-06-16. Maintenance rule: this document is downstream of the code; any change to a constant, predicate, or schema named here must update this file in the same commit, and Part IX is the only section permitted to describe behavior the code does not yet have.*

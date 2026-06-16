@@ -975,7 +975,7 @@ HTML_PAGE = r"""<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>SPOVNOB Click UI</title>
+<title>Click UI</title>
 <style>
   :root{--bg:#14161a;--panel:#1c1f24;--line:#2a2e35;--text:#d8dce2;--dim:#8a919c;
         --blue:#4a90d9;--orange:#e8842c;--green:#37d067;--red:#e06060;--purple:#b07fe0;}
@@ -1031,7 +1031,7 @@ HTML_PAGE = r"""<!doctype html>
 </head>
 <body>
 <header>
-  <h1>SPOVNOB Click UI</h1>
+  <h1>Click UI</h1>
   <span class="sub" id="videoName">loading…</span>
   <span class="sub" id="devInfo"></span>
 </header>

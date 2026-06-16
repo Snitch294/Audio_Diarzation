@@ -701,7 +701,7 @@ HTML_TEMPLATE = r"""<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>SPOVNOB Audit — __TITLE__</title>
+<title>Audit — __TITLE__</title>
 <style>
   :root{--bg:#14161a;--panel:#1c1f24;--line:#2a2e35;--text:#d8dce2;--dim:#8a919c;
         --vad:#37d067;--high:#37d067;--med:#e8c84a;--sub:#6a7077;--rej:#3a3f46;
@@ -753,7 +753,7 @@ HTML_TEMPLATE = r"""<!doctype html>
 </head>
 <body>
 <header>
-  <h1>SPOVNOB Audit Visualizer</h1>
+  <h1>Audit Visualizer</h1>
   <span class="sub">__TITLE__</span>
   <span class="sub">generated __GENERATED__</span>
 </header>
