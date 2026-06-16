@@ -65,7 +65,7 @@ else
     sleep 2; echo -n "."
   done
   echo " captured."
-  read -r -p ">> Press Enter to run the pipeline (Ctrl-C to keep editing clicks)... " _
+  read -r -p ">> Press Enter to run the pipeline (Ctrl-C to keep editing clicks)... " _ || true
   kill "$UI_PID" 2>/dev/null || true
   trap - EXIT
 fi
