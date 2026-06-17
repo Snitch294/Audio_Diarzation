@@ -305,6 +305,45 @@ def _test_params_and_clicks() -> None:
             pass
 
 
+def _test_audio_anchored() -> None:
+    """target_solo_vad_spans + outlier_seed_indices (beard / audio-anchored
+    path). Pure: synthetic frames, a tiny VAD stub, unit-vector embeddings."""
+    import types
+
+    from .enrollment import outlier_seed_indices, target_solo_vad_spans
+    from .vision import FaceObs, FrameFaces
+
+    tgt = [1.0, 0.0, 0.0]
+    other = [0.0, 1.0, 0.0]          # cosine(other, tgt) == 0 < reid threshold
+
+    def face(emb: List[float]) -> FaceObs:
+        return FaceObs(bbox=(0.0, 0.0, 10.0, 10.0), det_score=0.9,
+                       embedding=emb, mar=None, yaw_degrees=None)
+
+    frames = []
+    for pts in range(0, 6001, 40):
+        faces = [face(tgt)]
+        if 2400 <= pts < 3000:       # a two-shot interrupts the solo run
+            faces.append(face(other))
+        frames.append(FrameFaces(pts_ms=pts, faces=faces))
+    audio = types.SimpleNamespace(silero_segments_local_ms=[(0, 6000)])
+
+    spans = target_solo_vad_spans(frames, tgt, audio, P)
+    # Two solo runs survive (each >= audio_solo_min_ms); the two-shot is excluded.
+    assert len(spans) == 2, spans
+    assert spans[0][0] == 0 and 2360 <= spans[0][1] < 2400, spans
+    assert spans[1] == (3000, 6000), spans
+    assert all(t1 - t0 >= P.audio_solo_min_ms for t0, t1 in spans), spans
+
+    # No VAD anywhere -> no spans.
+    silent = types.SimpleNamespace(silero_segments_local_ms=[])
+    assert target_solo_vad_spans(frames, tgt, silent, P) == []
+
+    # Outlier seed detection keys off the consistency floor (default 0.65).
+    assert outlier_seed_indices([0.85, 0.62, 0.80], P) == [1]
+    assert outlier_seed_indices([0.90, 0.95], P) == []
+
+
 def run() -> int:
     assert "torch" not in sys.modules, "torch imported at module level"
     _test_geometry()
@@ -313,6 +352,7 @@ def run() -> int:
     _test_quality()
     _test_encoding_pure()
     _test_params_and_clicks()
+    _test_audio_anchored()
     for forbidden in ("torch", "cv2", "numpy", "onnxruntime", "insightface",
                       "ultralytics"):
         assert forbidden not in sys.modules, f"self-test imported {forbidden}"

@@ -20,6 +20,11 @@ import environment_gate  # noqa: F401  (first import: fixes process env)
 from dataclasses import asdict, dataclass
 from typing import Any, Dict, Tuple
 
+# Bumped to 2 when the audio-anchored (beard / unreliable-MAR) enrollment path
+# and its parameters were added. Written into the manifest so any run's chain of
+# custody records which parameter schema produced it.
+PARAM_SCHEMA_VERSION = 2
+
 
 @dataclass(frozen=True)
 class EnrollmentParams:
@@ -83,5 +88,24 @@ class EnrollmentParams:
     marginal_ms: int = 20000                # MARGINAL floor: 20s
     variance_high: float = 0.05             # "high variance" for quality states
 
+    # --- audio-anchored enrollment (beard / unreliable-MAR path, schema v2) ----
+    # When the operator flags a subject as bearded, geometric lip-landmark MAR
+    # is not a trustworthy speaking signal (2d106 lower-lip localization fails
+    # under a dense beard — bench-confirmed 2026-06-17 on UB-clip2: target MAR
+    # stuck ~0.20-0.25 regardless of mouth state). The target is then enrolled
+    # from TARGET-SOLO + VAD spans, attributed by ECAPA against a consensus
+    # anchor instead of by lips. Thresholds bench-derived on UB-clip2:
+    #   target-vs-consensus ~0.83, interviewer-vs-consensus peaks ~0.69.
+    audio_anchor_accept_sim: float = 0.78   # accept a solo segment into the pool
+    audio_anchor_collect_sim: float = 0.55  # provisional sim to bootstrap the
+                                            # consensus from the seed click(s)
+    audio_anchor_consistency_min: float = 0.65  # a seed click below this sim to
+                                            # the consensus is an OUTLIER (e.g.
+                                            # brief cross-talk) -> warn + request
+                                            # another seed click
+    audio_solo_min_ms: int = 2000           # min target-solo+VAD span to consider
+    audio_solo_face_max_others: int = 0     # "solo" == this many OTHER faces on
+                                            # screen (0 = strictly target alone)
+
     def manifest_payload(self) -> Dict[str, Any]:
-        return asdict(self)
+        return {"schema_version": PARAM_SCHEMA_VERSION, **asdict(self)}

@@ -503,6 +503,7 @@ class UISession:
     file_audio: FileAudio
     frames: List[FrameFaces]
     params: EnrollmentParams
+    video_sha8: str = ""             # first 8 hex chars — used as browser cache-buster
 
     @property
     def servable_frames(self) -> int:
@@ -698,6 +699,7 @@ def prepare_session(
                     scan_stats=blob["scan_stats"], device=device,
                     from_cache=True, file_audio=blob["file_audio"],
                     frames=blob["frames"], params=params,
+                    video_sha8=video_sha[:8],
                 )
             _log("pre-scan cache STALE (key/frame mismatch) — rebuilding")
 
@@ -789,6 +791,7 @@ def prepare_session(
         native_width=native_width, native_height=native_height,
         scan_stats=scan_stats, device=device, from_cache=False,
         file_audio=file_audio, frames=frames, params=params,
+        video_sha8=video_sha[:8],
     )
 
 
@@ -879,6 +882,7 @@ def create_app(ui: UISession, session: ClickSession):
         return _no_store({
             "video_name": ui.video_path.name,
             "video_path": str(ui.video_path),
+            "video_sha8": ui.video_sha8,
             "native_width": ui.native_width,
             "native_height": ui.native_height,
             "frame_count": count,
@@ -1116,7 +1120,7 @@ function ensure(i){
   if (!imgs.has(i)){
     const im = new Image();
     im.onload = () => { if (i === cur) draw(); };
-    im.src = "frames/" + i;
+    im.src = "frames/" + i + "?v=" + META.video_sha8;
     imgs.set(i, im);
   }
   return imgs.get(i);

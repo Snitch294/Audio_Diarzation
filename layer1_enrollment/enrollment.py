@@ -127,13 +127,26 @@ class AntiClick:
 class OperatorClicks:
     speaking: SpeakingClick
     anti: Optional[AntiClick] = None
+    # Audio-anchored (schema v2). extra_seeds are additional target-solo seed
+    # clicks for the consensus anchor (the multi-click path). The *_bearded
+    # flags are explicit operator declarations: a bearded subject's MAR is not
+    # trusted, switching that subject to the audio-anchored path.
+    extra_seeds: Tuple[SpeakingClick, ...] = ()
+    target_bearded: bool = False
+    interviewer_bearded: bool = False
 
 
 def load_clicks(path: Path | str) -> OperatorClicks:
     """Parse the operator clicks JSON file:
     {"speaking_click": {"file_index": 0, "pts_ms": 41250, "x": 812, "y": 440},
      "anti_click":     {"file_index": 0, "pts_ms": 95000, "x": 300, "y": 400}}
-    ("anti_click" is optional — Track C is optional by design.)"""
+    ("anti_click" is optional — Track C is optional by design.)
+
+    Schema v2 (optional, all backward-compatible):
+     "speaking_clicks": [ {…}, {…} ]   additional seed clicks (multi-click anchor)
+     "target_bearded": true            target uses the audio-anchored path
+     "interviewer_bearded": true       interviewer MAR is not trusted in two-shots
+    """
     data = json.loads(Path(path).read_text(encoding="utf-8"))
 
     def _click(block: Dict[str, Any], cls: type) -> Any:
@@ -146,11 +159,24 @@ def load_clicks(path: Path | str) -> OperatorClicks:
             x=float(block["x"]), y=float(block["y"]),
         )
 
+    def _flag(key: str) -> bool:
+        value = data.get(key, False)
+        if not isinstance(value, bool):
+            raise Layer1Error(f"clicks JSON: {key} must be a boolean")
+        return value
+
     if "speaking_click" not in data:
         raise Layer1Error("clicks JSON: speaking_click is mandatory")
     speaking = _click(data["speaking_click"], SpeakingClick)
+    extra = tuple(
+        _click(block, SpeakingClick) for block in data.get("speaking_clicks", [])
+    )
     anti = _click(data["anti_click"], AntiClick) if data.get("anti_click") else None
-    return OperatorClicks(speaking=speaking, anti=anti)
+    return OperatorClicks(
+        speaking=speaking, anti=anti, extra_seeds=extra,
+        target_bearded=_flag("target_bearded"),
+        interviewer_bearded=_flag("interviewer_bearded"),
+    )
 
 
 # =============================================================================
@@ -313,6 +339,63 @@ def _run_machine(
     return windows
 
 
+# =============================================================================
+# Audio-anchored enrollment (beard / unreliable-MAR path) — pure helpers
+# =============================================================================
+
+def target_solo_vad_spans(
+    frames: Sequence[FrameFaces],
+    f_target: Sequence[float],
+    file_audio: FileAudio,
+    params: EnrollmentParams,
+) -> List[Tuple[int, int]]:
+    """Contiguous (t_start, t_stop) spans where the target is the ONLY person
+    on screen AND Silero shows speech — i.e. the speaker is the target by
+    elimination, no lip-reading required. This is the beard-agnostic backbone:
+    no MAR, no yaw. A frame qualifies when VAD is active, the target matches,
+    and at most `audio_solo_face_max_others` other faces are present (0 = strict
+    solo). Runs are split on a gap of more than 3 frame intervals and kept only
+    if at least `audio_solo_min_ms` long. PTS are integer ms (Rule 6)."""
+    segments = file_audio.silero_segments_local_ms
+    step = (frames[1].pts_ms - frames[0].pts_ms) if len(frames) > 1 else 40
+    max_gap = max(step, 1) * 3
+    qualifying: List[int] = []
+    for frame in frames:
+        if not vad_near(frame.pts_ms, segments, params.vad_tol_ms):
+            continue
+        target, _ = _match_face(frame.faces, f_target, params.face_reid_threshold)
+        if target is None:
+            continue
+        others = sum(1 for face in frame.faces if face is not target)
+        if others <= params.audio_solo_face_max_others:
+            qualifying.append(frame.pts_ms)
+    if not qualifying:
+        return []
+    spans: List[Tuple[int, int]] = []
+    start = prev = qualifying[0]
+    for pts in qualifying[1:]:
+        if pts - prev > max_gap:
+            spans.append((start, prev))
+            start = pts
+        prev = pts
+    spans.append((start, prev))
+    return [(t0, t1) for t0, t1 in spans if t1 - t0 >= params.audio_solo_min_ms]
+
+
+def outlier_seed_indices(
+    seed_sims: Sequence[float], params: EnrollmentParams
+) -> List[int]:
+    """Seed clicks whose similarity to the consensus anchor falls below the
+    self-consistency floor — i.e. an unrepresentative seed (e.g. a brief
+    cross-talk span). The operator is asked to re-mark these so a single bad
+    seed cannot anchor the whole enrollment (bench-confirmed 2026-06-17: a 3.9s
+    span had NEGATIVE separation margin yet looked fine by length alone)."""
+    return [
+        i for i, sim in enumerate(seed_sims)
+        if sim < params.audio_anchor_consistency_min
+    ]
+
+
 def _clamp_local(file_audio: FileAudio, pts_ms: int) -> int:
     low = file_audio.audio_start_pts_ms
     high = file_audio.audio_start_pts_ms + file_audio.duration_ms
@@ -422,6 +505,12 @@ def run_layer1(
             "pts_ms": clicks.speaking.pts_ms,
         },
         "anti_click_present": clicks.anti is not None,
+        # Operator beard declarations + the resulting enrollment mode are part
+        # of the chain of custody: they explain why MAR was or was not trusted.
+        "target_bearded": clicks.target_bearded,
+        "interviewer_bearded": clicks.interviewer_bearded,
+        "extra_seed_count": len(clicks.extra_seeds),
+        "enrollment_mode": "audio_anchored" if clicks.target_bearded else "mar",
     })
 
     first_index = batch.files[0].file_index
@@ -498,6 +587,51 @@ def run_layer1(
             _vector_payload(kind, file_audio, t0, t1, vector, persist, extra),
         )
 
+    # Audio-anchored mode: the target is bearded, so geometric MAR is not a
+    # trustworthy speaking signal. Attribution falls back to structure (target
+    # alone on screen + VAD) confirmed by ECAPA against the consensus anchor.
+    audio_anchored = clicks.target_bearded
+
+    def _audio_collect(file_audio: FileAudio, frames: List[FrameFaces]) -> None:
+        """Accept target-solo + VAD spans whose voice matches the consensus
+        anchor (e_seed) at >= audio_anchor_accept_sim. No MAR, no yaw: the
+        target is the only face on screen, so the speaker is the target by
+        elimination, and ECAPA confirms it is not an off-screen voice. Seed
+        spans (already pooled) are skipped via the seed_span guard."""
+        for t0, t1 in target_solo_vad_spans(frames, f_target, file_audio, params):
+            ct0, ct1 = _clamp_local(file_audio, t0), _clamp_local(file_audio, t1)
+            base = {
+                "kind": KIND_TRACK_A, "file_index": file_audio.file_index,
+                "t_start_local_ms": ct0, "t_stop_local_ms": ct1,
+                "duration_ms": ct1 - ct0, "mode": "audio_anchored",
+            }
+            if (
+                seed_span is not None
+                and file_audio.file_index == seed_span[0]
+                and not (ct1 <= seed_span[1] or ct0 >= seed_span[2])
+            ):
+                manifest.append(Operation.ENROLLMENT_DISCARD,
+                                {**base, "reason": "seed_overlap"})
+                continue
+            vector, duration = _encode(file_audio, ct0, ct1)
+            sim_seed = cosine(vector, e_seed)
+            base["sim_seed"] = sim_seed
+            if sim_seed < params.audio_anchor_accept_sim:        # anchored Gate B
+                manifest.append(Operation.ENROLLMENT_DISCARD,
+                                {**base, "reason": "low_sim_to_anchor"})
+                continue
+            if e_anti is not None:                                # Gate C if anti
+                sim_anti = cosine(vector, e_anti)
+                base["sim_anti"] = sim_anti
+                if (sim_anti > params.threshold_anti
+                        or (sim_seed - sim_anti) < params.margin_minimum):
+                    manifest.append(Operation.ENROLLMENT_DISCARD,
+                                    {**base, "reason": "anti_reject"})
+                    continue
+            _accept(file_audio, KIND_TRACK_A, ct0, ct1, vector, duration,
+                    None, None,
+                    {"sim_seed": sim_seed, "audio_anchored": True}, into_anti=False)
+
     # =========================================================================
     # Sequential per-video loop (canonical file order — architectural)
     # =========================================================================
@@ -517,7 +651,127 @@ def run_layer1(
             })
 
         # --- Video 1 only: clicks -> F_target, E_seed, optional Track C ----
-        if f_target is None:
+        if f_target is None and audio_anchored:
+            # ---- Audio-anchored seed (bearded target; MAR not trusted) ------
+            # F_target from every seed click; the consensus voiceprint is built
+            # from target-solo + VAD spans (structure, not lips).
+            seed_clicks = [clicks.speaking, *clicks.extra_seeds]
+            anchor_embeddings: List[List[float]] = []
+            for sc in seed_clicks:
+                try:
+                    sc_face, _ = _face_at_click(frames, sc.pts_ms, sc.x, sc.y)
+                except Layer1ReclickError as exc:
+                    _reclick(manifest, "no_face_at_speaking_click",
+                             {"pts_ms": sc.pts_ms, "detail": str(exc)})
+                anchor_embeddings.append(list(sc_face.embedding))
+            f_target = _mean_embedding(anchor_embeddings)
+
+            spans = target_solo_vad_spans(frames, f_target, file_audio, params)
+            if not spans:
+                _reclick(manifest, "no_target_solo_speech",
+                         {"note": "no target-solo + VAD span for the audio anchor"})
+
+            span_vec: Dict[Tuple[int, int], Tuple[int, int, List[float], int]] = {}
+            for t0, t1 in spans:
+                ct0, ct1 = _clamp_local(file_audio, t0), _clamp_local(file_audio, t1)
+                vec, dur = _encode(file_audio, ct0, ct1)
+                span_vec[(t0, t1)] = (ct0, ct1, vec, dur)
+
+            seed_keys: List[Tuple[int, int]] = []
+            for sc in seed_clicks:
+                key = next((k for k in spans if k[0] <= sc.pts_ms <= k[1]), None)
+                if key is None:
+                    _reclick(manifest, "seed_click_not_in_solo_span",
+                             {"pts_ms": sc.pts_ms})
+                if key not in seed_keys:
+                    seed_keys.append(key)
+            seed_vectors = [span_vec[k][2] for k in seed_keys]
+            seed_durs = [span_vec[k][3] for k in seed_keys]
+
+            # Provisional anchor -> collect matching spans -> consensus anchor.
+            provisional = l2_normalize(
+                duration_weighted_mean(seed_vectors, seed_durs))
+            cons_vectors, cons_durs = list(seed_vectors), list(seed_durs)
+            for key, (ct0, ct1, vec, dur) in span_vec.items():
+                if key in seed_keys:
+                    continue
+                if cosine(vec, provisional) >= params.audio_anchor_collect_sim:
+                    cons_vectors.append(vec)
+                    cons_durs.append(dur)
+            e_seed = l2_normalize(duration_weighted_mean(cons_vectors, cons_durs))
+
+            # Self-consistency (LEAVE-ONE-OUT): score each seed against the
+            # consensus of all OTHER accepted spans, so a seed cannot validate
+            # itself. Warn-only: the solo-on-screen structure already guarantees
+            # target identity, so a weak/atypical anchor is a flag for the
+            # operator (consider adding seed clicks), not a hard block.
+            seed_sims: List[Optional[float]] = []
+            for i in range(len(seed_vectors)):
+                rest_v = cons_vectors[:i] + cons_vectors[i + 1:]
+                rest_d = cons_durs[:i] + cons_durs[i + 1:]
+                if rest_v:
+                    loo = l2_normalize(duration_weighted_mean(rest_v, rest_d))
+                    seed_sims.append(cosine(seed_vectors[i], loo))
+                else:
+                    seed_sims.append(None)   # single seed, nothing to check against
+            outliers = outlier_seed_indices(
+                [s for s in seed_sims if s is not None], params)
+            if outliers or any(s is None for s in seed_sims):
+                manifest.append(Operation.WARNING, {
+                    "warning": "seed_anchor_outlier",
+                    "file_index": file_audio.file_index,
+                    "seed_sims": seed_sims,
+                    "consistency_min": params.audio_anchor_consistency_min,
+                    "note": "weak/unverified seed anchor; consider more seed clicks",
+                })
+
+            seed_span = (file_audio.file_index,
+                         min(k[0] for k in seed_keys),
+                         max(span_vec[k][1] for k in seed_keys))
+            for k in seed_keys:
+                ct0, ct1, vec, dur = span_vec[k]
+                _accept(file_audio, KIND_SEED, ct0, ct1, vec, dur, None, None,
+                        {"operator_verified": True, "audio_anchored": True},
+                        into_anti=False)
+            manifest.append(OP_SEED, {
+                "file_index": file_audio.file_index,
+                "mode": "audio_anchored",
+                "seed_spans": [[span_vec[k][0], span_vec[k][1]] for k in seed_keys],
+                "collected_for_anchor": len(cons_vectors) - len(seed_vectors),
+                "seed_sims": seed_sims,
+                "vector_sha256": sha256_of_obj(e_seed),
+            })
+
+            # Track C — operator anti click (optional). Skip the target-lips
+            # check (MAR untrusted for a bearded target); keep identity + VAD.
+            if clicks.anti is not None:
+                try:
+                    anti_face, anti_pts = _face_at_click(
+                        frames, clicks.anti.pts_ms, clicks.anti.x, clicks.anti.y)
+                except Layer1ReclickError as exc:
+                    _reclick(manifest, "no_face_at_anti_click",
+                             {"pts_ms": clicks.anti.pts_ms, "detail": str(exc)})
+                sim_to_target = cosine(anti_face.embedding, f_target)
+                if sim_to_target >= params.face_reid_threshold:      # guardrail 3
+                    _reclick(manifest, "anti_click_matches_target",
+                             {"sim_to_target": sim_to_target})
+                if not vad_near(anti_pts, file_audio.silero_segments_local_ms,
+                                params.vad_tol_ms):
+                    _reclick(manifest, "no_audio_energy_at_anti_click",
+                             {"pts_ms": anti_pts})
+                half = params.trackb_window_ms // 2
+                anti_t0 = _clamp_local(file_audio, anti_pts - half)
+                anti_t1 = _clamp_local(file_audio, anti_pts + half)
+                anti_vector, anti_duration = _encode(file_audio, anti_t0, anti_t1)
+                f_interviewer = list(anti_face.embedding)
+                _accept(file_audio, KIND_ANTI_C, anti_t0, anti_t1, anti_vector,
+                        anti_duration, None, None,
+                        {"operator_verified": True,
+                         "sim_to_target_face": sim_to_target,
+                         "audio_anchored": True}, into_anti=True)
+                _recompute_anti()
+
+        elif f_target is None:
             try:
                 anchor, _ = _face_at_click(
                     frames, clicks.speaking.pts_ms,
@@ -648,9 +902,13 @@ def run_layer1(
                     "floor": params.reid_warning_floor,
                 })
 
-        # --- Track A: candidate windows through the Triple Gate --------------
+        # --- Audio-anchored: target-solo + VAD spans replace the MAR Track A -
+        if audio_anchored:
+            _audio_collect(file_audio, frames)
+
+        # --- Track A: candidate windows through the Triple Gate (MAR mode) ---
         gate_c_failures: List[Dict[str, Any]] = []
-        for window in _run_machine(bundle.obs, params):
+        for window in ([] if audio_anchored else _run_machine(bundle.obs, params)):
             t0 = _clamp_local(file_audio, window.t_start_ms)
             t1 = _clamp_local(file_audio, window.t_stop_ms)
             base = {
@@ -707,7 +965,7 @@ def run_layer1(
 
         # --- Track B: automatic anti-profile collection -----------------------
         last_center: Optional[int] = None
-        for center in bundle.trackb_centers:
+        for center in ([] if audio_anchored else bundle.trackb_centers):
             if (
                 last_center is not None
                 and center - last_center < params.trackb_min_spacing_ms
