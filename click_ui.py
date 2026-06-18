@@ -107,6 +107,7 @@ from layer1_enrollment.enrollment import (
     _match_face,
     _mean_embedding,
     _run_machine,
+    target_solo_vad_spans,
 )
 from layer1_enrollment.errors import Layer1ReclickError
 from layer1_enrollment.gates import vad_near
@@ -135,6 +136,7 @@ SPEAKING_REASONS = (
     "click_outside_speaking_window",
     "seed_too_short",
     "overlap_at_speaking_click",
+    "click_not_in_solo_speech",
 )
 ANTI_REASONS = (
     "no_face_at_anti_click",
@@ -146,6 +148,7 @@ UI_REASONS = (
     "speaking_click_required_first",
     "export_requires_speaking_click",
     "anti_click_not_registered",
+    "anti_click_required_beard",
     "invalid_request",
 )
 ALL_REASONS = SPEAKING_REASONS + ANTI_REASONS + UI_REASONS
@@ -185,6 +188,15 @@ def reason_message(reason: str, detail: Dict[str, Any],
             f"{num('non_target_lips_open_frac', '{:.0%}')} of this speaking window "
             f"(maximum {params.click_overlap_max_frac:.0%}) — possible overlapped "
             "speech. Pick a stretch where only the target is talking.",
+        "click_not_in_solo_speech":
+            "Beard mode: the seed must land where the target is the ONLY face on "
+            "screen AND Silero shows speech (so the voice is the target's by "
+            f"elimination), for at least {params.audio_solo_min_ms} ms. Scrub to a "
+            "single-face (blue) + green-VAD stretch and click the target.",
+        "anti_click_required_beard":
+            "Beard mode requires an anti-click: the target's lips can't confirm "
+            "speech, so the interviewer's voiceprint is needed to keep the "
+            "enrollment clean and reach STRONG. Register the interviewer's face.",
         "no_face_at_anti_click":
             f"No detected face within {CLICK_MATCH_MAX_GAP_MS} ms of this "
             "timestamp. The interviewer must be on camera — use the orange "
@@ -250,6 +262,28 @@ class ClickSession:
         self.speaking: Optional[RegisteredClick] = None
         self.anti: Optional[RegisteredClick] = None
         self.f_target: Optional[List[float]] = None
+        # Audio-anchored (beard) mode. extra_seeds holds the additional
+        # multi-click seeds; seed_anchors are their per-click face embeddings,
+        # averaged into F_target so the consensus lock matches Layer 1.
+        self.target_bearded: bool = False
+        self.interviewer_bearded: bool = False
+        self.extra_seeds: List[RegisteredClick] = []
+        self.seed_anchors: List[List[float]] = []
+
+    def set_beard(self, target: bool, interviewer: bool) -> Dict[str, Any]:
+        """Toggle the per-person beard declarations. Changing the target flag
+        switches the speaking-click validation mode, so all clicks are cleared
+        to force re-registration under the new rules."""
+        changed_target = target != self.target_bearded
+        self.interviewer_bearded = interviewer
+        if changed_target:
+            self.target_bearded = target
+            self.speaking = None
+            self.anti = None
+            self.f_target = None
+            self.extra_seeds = []
+            self.seed_anchors = []
+        return {"ok": True, "state": self.state_payload()}
 
     # -- result helpers ---------------------------------------------------------
 
@@ -267,13 +301,54 @@ class ClickSession:
                 return None
             return {"pts_ms": click.pts_ms, "x": click.x, "y": click.y,
                     "summary": click.summary}
-        return {"speaking": one(self.speaking), "anti": one(self.anti)}
+        return {
+            "speaking": one(self.speaking),
+            "anti": one(self.anti),
+            "target_bearded": self.target_bearded,
+            "interviewer_bearded": self.interviewer_bearded,
+            "extra_seeds": [one(c) for c in self.extra_seeds],
+            "seed_count": (0 if self.speaking is None
+                           else 1 + len(self.extra_seeds)),
+        }
 
     # -- speaking click (guardrails 1 & 2 + window membership) -------------------
+
+    def _validate_speaking_solo(
+        self, pts_ms: int, x: float, y: float
+    ) -> Tuple[Dict[str, Any], Optional[List[float]]]:
+        """Beard-mode seed validation: no MAR. The click must land inside a
+        target-solo + VAD span (the target is the only face on screen while
+        Silero shows speech), mirroring enrollment.target_solo_vad_spans."""
+        params = self.params
+        try:
+            anchor, matched_pts = _face_at_click(self.frames, pts_ms, x, y)
+        except Layer1ReclickError as exc:
+            return self._fail("no_face_at_speaking_click",
+                              {"pts_ms": pts_ms, "detail": str(exc)}), None
+        spans = target_solo_vad_spans(
+            self.frames, anchor.embedding, self.file_audio, params)
+        span = next((s for s in spans if s[0] <= matched_pts <= s[1]), None)
+        if span is None:
+            return self._fail("click_not_in_solo_speech", {"pts_ms": pts_ms}), None
+        detail = {
+            "matched_frame_pts_ms": matched_pts,
+            "anchor_det_score": anchor.det_score,
+            "solo_span": {"t_start_ms": span[0], "t_stop_ms": span[1],
+                          "duration_ms": span[1] - span[0]},
+            "mode": "audio_anchored",
+        }
+        message = (
+            f"Seed valid (beard mode) — target alone on screen + speech "
+            f"{span[0]}–{span[1]} ms ({span[1] - span[0]} ms). Voice is the "
+            "target's by elimination; no lip-reading needed."
+        )
+        return {"ok": True, "message": message, "detail": detail}, list(anchor.embedding)
 
     def _validate_speaking(
         self, pts_ms: int, x: float, y: float
     ) -> Tuple[Dict[str, Any], Optional[List[float]]]:
+        if self.target_bearded:
+            return self._validate_speaking_solo(pts_ms, x, y)
         params = self.params
         try:
             # enrollment.py: anchor, _ = _face_at_click(...)
@@ -348,17 +423,29 @@ class ClickSession:
         return {"ok": True, "message": message, "detail": detail}, f_target
 
     def register_speaking(self, pts_ms: int, x: float, y: float) -> Dict[str, Any]:
-        result, f_target = self._validate_speaking(pts_ms, x, y)
+        result, embedding = self._validate_speaking(pts_ms, x, y)
         if not result["ok"]:
             return result
-        anti_cleared = self.anti is not None
-        self.speaking = RegisteredClick(
+        click = RegisteredClick(
             pts_ms=pts_ms, x=x, y=y,
             summary=result["message"], detail=result["detail"],
         )
-        self.f_target = f_target
-        # The anti click is validated against F_target; a new speaking click
-        # changes F_target, so any registered anti click is stale.
+        anti_cleared = self.anti is not None
+        if self.target_bearded:
+            # Multi-seed: first click is primary, the rest are extra seeds; the
+            # consensus lock is the mean of every seed's face embedding.
+            if self.speaking is None:
+                self.speaking = click
+            else:
+                self.extra_seeds.append(click)
+            self.seed_anchors.append(embedding)
+            self.f_target = _mean_embedding(self.seed_anchors)
+            result["seed_count"] = 1 + len(self.extra_seeds)
+        else:
+            self.speaking = click
+            self.f_target = embedding
+        # The anti click is validated against F_target; new seeds change
+        # F_target, so any registered anti click is stale.
         self.anti = None
         result["anti_cleared"] = anti_cleared
         return result
@@ -383,8 +470,11 @@ class ClickSession:
             click_frame.faces, self.f_target, params.face_reid_threshold,
         )
         target_mar = target_face.mar if target_face is not None else None
+        # Beard mode: the target's MAR is untrusted, so skip the target-lips
+        # check (Layer 1 skips it too). Identity + VAD checks still apply.
         if (
-            target_face is not None
+            not self.target_bearded
+            and target_face is not None
             and target_face.mar is not None
             and target_face.mar >= params.mar_on
         ):
@@ -421,38 +511,52 @@ class ClickSession:
 
     def clear(self, click_type: str) -> None:
         if click_type == "speaking":
-            # F_target derives from the speaking click; the anti click is
-            # validated against F_target — both fall together.
+            # F_target derives from the speaking click(s); the anti click is
+            # validated against F_target — all fall together.
             self.speaking = None
             self.f_target = None
             self.anti = None
+            self.extra_seeds = []
+            self.seed_anchors = []
         elif click_type == "anti":
             self.anti = None
 
     # -- export ----------------------------------------------------------------------
 
+    def _click_block(self, click: RegisteredClick) -> Dict[str, Any]:
+        return {
+            "file_index": self.file_audio.file_index,
+            "pts_ms": click.pts_ms,
+            "x": round(click.x, 2),
+            "y": round(click.y, 2),
+        }
+
     def export_payload(self, include_anti: bool) -> Dict[str, Any]:
         assert self.speaking is not None
         payload: Dict[str, Any] = {
-            "speaking_click": {
-                "file_index": self.file_audio.file_index,
-                "pts_ms": self.speaking.pts_ms,
-                "x": round(self.speaking.x, 2),
-                "y": round(self.speaking.y, 2),
-            }
+            "speaking_click": self._click_block(self.speaking),
         }
+        if self.target_bearded:
+            payload["target_bearded"] = True
+            if self.extra_seeds:
+                payload["speaking_clicks"] = [
+                    self._click_block(c) for c in self.extra_seeds]
+        if self.interviewer_bearded:
+            payload["interviewer_bearded"] = True
         if include_anti and self.anti is not None:
-            payload["anti_click"] = {
-                "file_index": self.file_audio.file_index,
-                "pts_ms": self.anti.pts_ms,
-                "x": round(self.anti.x, 2),
-                "y": round(self.anti.y, 2),
-            }
+            payload["anti_click"] = self._click_block(self.anti)
         return payload
 
     def write_export(self, work_dir: Path, include_anti: bool) -> Dict[str, Any]:
         if self.speaking is None:
             return self._fail("export_requires_speaking_click", {})
+        # Beard mode: an anti-click is mandatory — the target's lips can't
+        # confirm speech, so the interviewer voiceprint is required to keep the
+        # enrollment clean and let STRONG be reached at 45s (not 60s).
+        if self.target_bearded:
+            include_anti = True
+            if self.anti is None:
+                return self._fail("anti_click_required_beard", {})
         if include_anti and self.anti is None:
             return self._fail("anti_click_not_registered", {})
         payload = self.export_payload(include_anti)
@@ -968,6 +1072,16 @@ def create_app(ui: UISession, session: ClickSession):
             result["state"] = session.state_payload()
         return _no_store(result if result["ok"] else (result, 409))
 
+    @app.post("/beard")
+    def post_beard() -> Any:
+        data = request.get_json(silent=True) or {}
+        with lock:
+            result = session.set_beard(
+                bool(data.get("target", False)),
+                bool(data.get("interviewer", False)),
+            )
+        return _no_store(result)
+
     return app
 
 
@@ -1031,6 +1145,10 @@ HTML_PAGE = r"""<!doctype html>
                 padding:10px;font-size:12px;overflow:auto;display:none;margin-top:10px;
                 white-space:pre-wrap}
   .legend b{color:var(--text)}
+  .beard{border-bottom:1px solid var(--line);padding-bottom:10px;margin-bottom:6px}
+  .beard label.toggle{margin-top:8px}
+  #beardHint{display:none;margin-top:8px;line-height:1.45}
+  .seedlist{display:none;margin-top:6px;color:var(--green)}
 </style>
 </head>
 <body>
@@ -1058,21 +1176,35 @@ HTML_PAGE = r"""<!doctype html>
   </div>
 
   <div class="panel">
+    <div class="beard">
+      <label class="toggle">
+        <input type="checkbox" id="beardTarget"> Target has a beard
+      </label>
+      <label class="toggle">
+        <input type="checkbox" id="beardInterviewer"> Interviewer has a beard
+      </label>
+      <div class="hint" id="beardHint">
+        Beard mode: a bearded face's lips can't be measured, so the target is
+        enrolled from stretches where they are <b>alone on screen + speaking</b>
+        (mark one long clean stretch, or several). An anti-click is required.
+      </div>
+    </div>
     <div class="modes">
       <button id="modeS">Speaking click&nbsp;(s)</button>
       <button id="modeA">Anti click&nbsp;(a)</button>
     </div>
     <div class="clickrow" id="rowS">
-      <span class="tag">Speaking click</span>
+      <span class="tag" id="tagS">Speaking click</span>
       <span class="val" id="valS">— not set</span>
       <button id="clearS">Clear</button>
     </div>
+    <div class="seedlist hint" id="seedList"></div>
     <div class="clickrow" id="rowA">
       <span class="tag">Anti click</span>
       <span class="val" id="valA">— not set</span>
       <button id="clearA">Clear</button>
     </div>
-    <label class="toggle">
+    <label class="toggle" id="includeAntiRow">
       <input type="checkbox" id="includeAnti" checked>
       Include anti-click (Track C) — uncheck for the NO_ANTI_PROFILE path
     </label>
@@ -1270,6 +1402,7 @@ function statusLine(el, type){
 }
 function applyState(st){
   state = st;
+  const beard = !!state.target_bearded;
   const vs = $("valS"), va = $("valA");
   vs.textContent = state.speaking
     ? state.speaking.pts_ms + " ms  (" + state.speaking.x.toFixed(0) + ", " +
@@ -1281,20 +1414,49 @@ function applyState(st){
     : "— not set";
   statusLine($("statS"), "speaking");
   statusLine($("statA"), "anti");
+  applyBeardUI();
   updateExportButton();
   drawStrips();
   draw();
 }
+function applyBeardUI(){
+  const beard = !!state.target_bearded;
+  $("beardTarget").checked = beard;
+  $("beardInterviewer").checked = !!state.interviewer_bearded;
+  $("beardHint").style.display = beard ? "block" : "none";
+  // In beard mode the seed is multi-click and the anti is mandatory.
+  $("tagS").textContent = beard
+    ? "Seed clicks (" + (state.seed_count || 0) + ")" : "Speaking click";
+  $("modeS").innerHTML = beard ? "Add seed&nbsp;(s)" : "Speaking click&nbsp;(s)";
+  if (beard){ $("includeAnti").checked = true; }
+  $("includeAntiRow").style.display = beard ? "none" : "";
+  // Render the extra seed list.
+  const list = state.extra_seeds || [];
+  const sl = $("seedList");
+  if (beard && (state.speaking || list.length)){
+    const items = [];
+    if (state.speaking) items.push("seed 1 @ " + state.speaking.pts_ms + " ms");
+    list.forEach((c, i) => items.push("seed " + (i+2) + " @ " + c.pts_ms + " ms"));
+    sl.textContent = items.join("   ·   ");
+    sl.style.display = "block";
+  } else {
+    sl.style.display = "none";
+  }
+}
 function updateExportButton(){
-  const inc = $("includeAnti").checked;
+  const beard = !!state.target_bearded;
+  const inc = beard ? true : $("includeAnti").checked;
   const ready = !!state.speaking && (!inc || !!state.anti);
   const btn = $("exportBtn");
   btn.disabled = !ready;
   btn.title = ready ? "" :
-    (!state.speaking ? "Register the speaking click first"
-                     : "Register the anti click or uncheck “Include anti-click”");
+    (!state.speaking ? (beard ? "Mark at least one target-solo speaking seed"
+                              : "Register the speaking click first")
+     : (beard ? "Beard mode requires an anti-click (interviewer)"
+              : "Register the anti click or uncheck “Include anti-click”"));
 }
 function applyAntiToggle(){
+  if (state.target_bearded){ $("includeAnti").checked = true; }
   const inc = $("includeAnti").checked;
   $("rowA").classList.toggle("off", !inc);
   $("modeA").disabled = !inc;
@@ -1302,6 +1464,15 @@ function applyAntiToggle(){
   $("noAntiWarn").style.display = inc ? "none" : "block";
   if (!inc && mode === "anti") setMode("speaking");
   updateExportButton();
+}
+async function setBeard(){
+  const resp = await postJSON("beard", {
+    target: $("beardTarget").checked,
+    interviewer: $("beardInterviewer").checked,
+  });
+  lastMsg = {speaking: null, anti: null};
+  applyState(resp.state);
+  setMode("speaking");
 }
 
 /* ---------- actions ---------- */
@@ -1316,7 +1487,10 @@ async function registerClick(ev){
   if (resp.anti_cleared)
     lastMsg.anti = {ok: false,
       message: "anti click cleared — the target lock changed; re-register it"};
-  if (resp.ok && type === "speaking" && $("includeAnti").checked) setMode("anti");
+  // Clean-shaven: jump to anti after the single speaking click. Beard mode:
+  // stay in seed mode so the operator can add more seeds before the anti.
+  if (resp.ok && type === "speaking" && !resp.state.target_bearded
+      && $("includeAnti").checked) setMode("anti");
   applyState(resp.state);
 }
 async function clearClick(type){
@@ -1371,6 +1545,8 @@ async function init(){
   $("clearS").addEventListener("click", () => clearClick("speaking"));
   $("clearA").addEventListener("click", () => clearClick("anti"));
   $("includeAnti").addEventListener("change", applyAntiToggle);
+  $("beardTarget").addEventListener("change", setBeard);
+  $("beardInterviewer").addEventListener("change", setBeard);
   $("exportBtn").addEventListener("click", exportClicks);
   document.addEventListener("keydown", ev => {
     if (ev.target.tagName === "INPUT" && ev.target.type === "checkbox") ev.target.blur();
@@ -1611,6 +1787,33 @@ def _selftest() -> int:
         out = session.write_export(Path(tmp), include_anti=True)
         assert not out["ok"] and out["reason"] == "anti_click_not_registered"
 
+    # 12b. Beard mode: solo+VAD seed validation, multi-seed, mandatory anti.
+    beard = ClickSession(build_frames(), file_audio, params)
+    beard.set_beard(target=True, interviewer=False)
+    assert beard.target_bearded and beard.f_target is None
+    # The MAR window/overlap checks no longer apply; the click must sit in a
+    # target-solo + VAD span (target alone on screen, Silero active).
+    r = beard.register_speaking(4000, 400.0, 300.0)
+    assert r["ok"], r
+    assert r["detail"]["mode"] == "audio_anchored", r
+    assert beard.state_payload()["seed_count"] == 1
+    # A second seed appends (multi-click anchor).
+    r = beard.register_speaking(3000, 400.0, 300.0)
+    assert r["ok"] and beard.state_payload()["seed_count"] == 2, r
+    # A seed during a two-shot (interviewer present) is rejected — not solo.
+    r = beard.register_speaking(5500, 400.0, 300.0)
+    assert r["reason"] == "click_not_in_solo_speech", r
+    # Export is blocked until the mandatory anti is set.
+    with tempfile.TemporaryDirectory() as tmp:
+        out = beard.write_export(Path(tmp), include_anti=False)
+        assert not out["ok"] and out["reason"] == "anti_click_required_beard", out
+        assert beard.register_anti(7600, 800.0, 300.0)["ok"]
+        out = beard.write_export(Path(tmp), include_anti=False)  # forced True
+        assert out["ok"] and not out["no_anti"], out
+        parsed = load_clicks(out["path"])
+        assert parsed.target_bearded and len(parsed.extra_seeds) == 1
+        assert parsed.anti is not None
+
     # 13. Clearing the speaking click clears the dependent state.
     session.clear("speaking")
     assert session.speaking is None and session.f_target is None
@@ -1652,7 +1855,9 @@ def _selftest() -> int:
     # 17. Frontend page sanity (catches accidental truncation/renames).
     for needle in ('id="frame"', 'id="scrub"', 'id="stripFaces"',
                    'id="stripVad"', 'id="includeAnti"', 'id="exportBtn"',
-                   '"click"', '"export"', 'fetch("meta")', 'fetch("timeline")'):
+                   'id="beardTarget"', 'id="beardInterviewer"', 'id="seedList"',
+                   '"click"', '"export"', '"beard"',
+                   'fetch("meta")', 'fetch("timeline")'):
         assert needle in HTML_PAGE, f"HTML_PAGE missing {needle}"
 
     assert "torch" not in sys.modules, "self-test imported torch"
